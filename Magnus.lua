@@ -8,7 +8,7 @@ local DELAY = 0.3                         -- пауза после клавиш�
 -- Ивент мир
 local EVENT_COORDS = Vector3.new(-15845.41, 39.92, -196.47)
 
--- X, Z (Y и клавиша подставляются отдельно)
+-- X, Z точки фарма
 local topLayer = {
     {5257.03, -8081.24},
     {5273.52, -8081.50},
@@ -50,95 +50,169 @@ local layers = {
 }
 
 -- =====================
--- ===== ГУИ "MAGNUS_OCEAN77" =====
+-- ===== ГУИ: АВАТАР B1ZE =====
 -- =====================
 
+local OWNER_USER_ID = 11205845971   -- твой UserId
+local LINE_1 = "[B1ZE]"
+local LINE_2 = "By Magnus_Ocean77"
+local BG_COLOR = Color3.fromRGB(20, 30, 60)
+local BG_TRANSPARENCY = 0.4
+local AVATAR_SIZE = 200
+
 local gui = Instance.new("ScreenGui")
-gui.Name = "MagnusGui"
+gui.Name = "AvatarGui"
 gui.ResetOnSpawn = false
 gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 gui.IgnoreGuiInset = true
 gui.Parent = game.CoreGui
 
--- Чёрный фон на весь экран
+-- Синий полупрозрачный фон
 local bg = Instance.new("Frame")
 bg.Name = "Background"
 bg.Size = UDim2.new(1, 0, 1, 0)
-bg.Position = UDim2.new(0, 0, 0, 0)
-bg.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
-bg.BackgroundTransparency = 0.3
+bg.BackgroundColor3 = BG_COLOR
+bg.BackgroundTransparency = BG_TRANSPARENCY
 bg.BorderSizePixel = 0
 bg.ZIndex = 1
 bg.Parent = gui
 
--- Синяя надпись по центру
-local watermark = Instance.new("TextLabel")
-watermark.Name = "Watermark"
-watermark.Size = UDim2.new(1, 0, 0, 120)
-watermark.Position = UDim2.new(0, 0, 0.5, -60)
-watermark.BackgroundTransparency = 1
-watermark.Text = "Magnus_Ocean77 Farm"
-watermark.TextColor3 = Color3.fromRGB(60, 150, 255)
-watermark.TextStrokeTransparency = 0.5
-watermark.TextStrokeColor3 = Color3.fromRGB(0, 40, 120)
-watermark.Font = Enum.Font.GothamBold
-watermark.TextScaled = true
-watermark.ZIndex = 2
-watermark.Parent = gui
+-- Контейнер по центру
+local container = Instance.new("Frame")
+container.Size = UDim2.new(0, AVATAR_SIZE, 0, AVATAR_SIZE + 100)
+container.Position = UDim2.new(0.5, -AVATAR_SIZE/2, 0.5, -(AVATAR_SIZE + 100)/2)
+container.BackgroundTransparency = 1
+container.ZIndex = 2
+container.Parent = gui
 
-local sizeConstraint = Instance.new("UITextSizeConstraint")
-sizeConstraint.MaxTextSize = 90
-sizeConstraint.MinTextSize = 30
-sizeConstraint.Parent = watermark
+-- Твоя голова
+local img = Instance.new("ImageLabel")
+img.Size = UDim2.new(0, AVATAR_SIZE, 0, AVATAR_SIZE)
+img.Position = UDim2.new(0, 0, 0, 0)
+img.BackgroundTransparency = 1
+img.Image = "rbxthumb://type=AvatarHeadShot&id=" .. OWNER_USER_ID .. "&w=420&h=420"
+img.ScaleType = Enum.ScaleType.Fit
+img.ZIndex = 3
+img.Parent = container
 
--- =====================
--- ===== КНОПКА В УГЛУ =====
--- =====================
+-- [B1ZE]
+local line1 = Instance.new("TextLabel")
+line1.Size = UDim2.new(1, 0, 0, 50)
+line1.Position = UDim2.new(0, 0, 0, AVATAR_SIZE + 5)
+line1.BackgroundTransparency = 1
+line1.Text = LINE_1
+line1.TextColor3 = Color3.fromRGB(255, 255, 255)
+line1.TextStrokeTransparency = 0
+line1.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
+line1.Font = Enum.Font.GothamBlack
+line1.TextScaled = true
+line1.ZIndex = 3
+line1.Parent = container
 
+local sizeC1 = Instance.new("UITextSizeConstraint")
+sizeC1.MaxTextSize = 45
+sizeC1.MinTextSize = 25
+sizeC1.Parent = line1
+
+-- By Magnus_Ocean77
+local line2 = Instance.new("TextLabel")
+line2.Size = UDim2.new(1, 0, 0, 28)
+line2.Position = UDim2.new(0, 0, 0, AVATAR_SIZE + 55)
+line2.BackgroundTransparency = 1
+line2.Text = LINE_2
+line2.TextColor3 = Color3.fromRGB(180, 200, 255)
+line2.TextStrokeTransparency = 0.6
+line2.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
+line2.Font = Enum.Font.GothamBold
+line2.TextScaled = true
+line2.ZIndex = 3
+line2.Parent = container
+
+local sizeC2 = Instance.new("UITextSizeConstraint")
+sizeC2.MaxTextSize = 22
+sizeC2.MinTextSize = 12
+sizeC2.Parent = line2
+
+-- Кнопка скрыть/показать
 local btn = Instance.new("TextButton")
-btn.Name = "ToggleBtn"
 btn.Size = UDim2.new(0, 110, 0, 32)
 btn.Position = UDim2.new(1, -120, 0, 10)
-btn.BackgroundColor3 = Color3.fromRGB(15, 15, 20)
+btn.BackgroundColor3 = Color3.fromRGB(10, 15, 30)
 btn.BorderSizePixel = 0
 btn.Text = "👁 Скрыть"
-btn.TextColor3 = Color3.fromRGB(60, 150, 255)
+btn.TextColor3 = Color3.fromRGB(150, 200, 255)
 btn.Font = Enum.Font.GothamBold
 btn.TextSize = 13
 btn.ZIndex = 5
 btn.Parent = gui
-
-local corner = Instance.new("UICorner")
-corner.CornerRadius = UDim.new(0, 8)
-corner.Parent = btn
+Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 8)
 
 local stroke = Instance.new("UIStroke")
-stroke.Color = Color3.fromRGB(60, 150, 255)
+stroke.Color = Color3.fromRGB(100, 150, 255)
 stroke.Thickness = 1
 stroke.Parent = btn
 
 local visible = true
-
 btn.MouseButton1Click:Connect(function()
     visible = not visible
     bg.Visible = visible
-    watermark.Visible = visible
-    if visible then
-        btn.Text = "👁 Скрыть"
-    else
-        btn.Text = "👁 Показать"
-    end
+    container.Visible = visible
+    btn.Text = visible and "👁 Скрыть" or "👁 Показать"
 end)
+
+-- =====================
+-- ===== ПРОГРЕСС-БАР =====
+-- =====================
+
+local progressBg = Instance.new("Frame")
+progressBg.Name = "ProgressBg"
+progressBg.Size = UDim2.new(0, 400, 0, 30)
+progressBg.Position = UDim2.new(0.5, -200, 1, -50)
+progressBg.BackgroundColor3 = Color3.fromRGB(10, 15, 30)
+progressBg.BackgroundTransparency = 0.2
+progressBg.BorderSizePixel = 0
+progressBg.ZIndex = 5
+progressBg.Parent = gui
+Instance.new("UICorner", progressBg).CornerRadius = UDim.new(0, 8)
+
+local progressFill = Instance.new("Frame")
+progressFill.Name = "ProgressFill"
+progressFill.Size = UDim2.new(0, 0, 1, 0)
+progressFill.BackgroundColor3 = Color3.fromRGB(60, 150, 255)
+progressFill.BorderSizePixel = 0
+progressFill.ZIndex = 6
+progressFill.Parent = progressBg
+Instance.new("UICorner", progressFill).CornerRadius = UDim.new(0, 8)
+
+local progressText = Instance.new("TextLabel")
+progressText.Name = "ProgressText"
+progressText.Size = UDim2.new(1, 0, 1, 0)
+progressText.BackgroundTransparency = 1
+progressText.Text = "0%"
+progressText.TextColor3 = Color3.fromRGB(255, 255, 255)
+progressText.TextStrokeTransparency = 0.5
+progressText.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
+progressText.Font = Enum.Font.GothamBold
+progressText.TextSize = 14
+progressText.ZIndex = 7
+progressText.Parent = progressBg
+
+local function updateProgress(current, total)
+    local percent = math.floor((current / total) * 100)
+    progressFill.Size = UDim2.new(percent / 100, 0, 1, 0)
+    progressText.Text = percent .. "% (" .. current .. "/" .. total .. ")"
+end
 
 -- =====================
 -- ===== ЛОГИКА ФАРМА =====
 -- =====================
 
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
 local running = false
 
 local function getHRP()
-    local lp = game.Players.LocalPlayer
-    local char = lp.Character
+    local char = LocalPlayer.Character
     return char and char:FindFirstChild("HumanoidRootPart")
 end
 
@@ -157,15 +231,19 @@ local function pressKey(key)
     vim:SendKeyEvent(false, key, false, game)
 end
 
--- ===== ФАРМ =====
 local function farm()
     running = true
+
+    local totalSteps = #layers * #topLayer
+    local currentStep = 0
+
+    updateProgress(0, totalSteps)
+    print("▶ Фарм начался (" .. totalSteps .. " точек)")
 
     for _, layer in ipairs(layers) do
         if not running then break end
         local y = layer[1]
         local key = layer[2]
-        print(string.format("=== СЛОЙ Y = %.2f | клавиша: %s ===", y, key.Name))
 
         for i, t in ipairs(topLayer) do
             if not running then break end
@@ -173,8 +251,9 @@ local function farm()
 
             local pos = Vector3.new(t[1], y, t[2])
             teleportTo(pos)
-            print(string.format("[%d/%d] TP -> %.2f, %.2f, %.2f",
-                i, #topLayer, pos.X, pos.Y, pos.Z))
+
+            currentStep = currentStep + 1
+            updateProgress(currentStep, totalSteps)
 
             task.wait(TP_SETTLE)
             pressKey(key)
@@ -183,10 +262,11 @@ local function farm()
     end
 
     running = false
+    updateProgress(totalSteps, totalSteps)
     print("✅ Фарм завершён")
 end
 
--- ===== СЕРВЕРХОП =====
+-- ===== ТВОЙ СЕРВЕРХОП =====
 local function serverHop()
     print("⬆ Серверхоп...")
 
@@ -194,39 +274,29 @@ local function serverHop()
     local AllIDs = {}
     local foundAnything = ""
     local actualHour = os.date("!*t").hour
-
     local File = pcall(function()
         AllIDs = game:GetService('HttpService'):JSONDecode(readfile("NotSameServers.json"))
     end)
     if not File then
         table.insert(AllIDs, actualHour)
-        pcall(function()
-            writefile("NotSameServers.json", game:GetService('HttpService'):JSONEncode(AllIDs))
-        end)
+        writefile("NotSameServers.json", game:GetService('HttpService'):JSONEncode(AllIDs))
     end
 
     local function TPReturner()
         local Site
         if foundAnything == "" then
-            Site = game.HttpService:JSONDecode(game:HttpGet(
-                'https://games.roblox.com/v1/games/' .. PlaceID ..
-                '/servers/Public?sortOrder=Asc&limit=100'))
+            Site = game.HttpService:JSONDecode(game:HttpGet('https://games.roblox.com/v1/games/' .. PlaceID .. '/servers/Public?sortOrder=Asc&limit=100'))
         else
-            Site = game.HttpService:JSONDecode(game:HttpGet(
-                'https://games.roblox.com/v1/games/' .. PlaceID ..
-                '/servers/Public?sortOrder=Asc&limit=100&cursor=' .. foundAnything))
+            Site = game.HttpService:JSONDecode(game:HttpGet('https://games.roblox.com/v1/games/' .. PlaceID .. '/servers/Public?sortOrder=Asc&limit=100&cursor=' .. foundAnything))
         end
-
         local ID = ""
         if Site.nextPageCursor and Site.nextPageCursor ~= "null" and Site.nextPageCursor ~= nil then
             foundAnything = Site.nextPageCursor
         end
-
         local num = 0
         for i, v in pairs(Site.data) do
             local Possible = true
             ID = tostring(v.id)
-
             if tonumber(v.maxPlayers) > tonumber(v.playing) then
                 for _, Existing in pairs(AllIDs) do
                     if num ~= 0 then
@@ -244,16 +314,13 @@ local function serverHop()
                     end
                     num = num + 1
                 end
-
                 if Possible == true then
                     table.insert(AllIDs, ID)
                     task.wait()
                     pcall(function()
-                        writefile("NotSameServers.json",
-                            game:GetService('HttpService'):JSONEncode(AllIDs))
+                        writefile("NotSameServers.json", game:GetService('HttpService'):JSONEncode(AllIDs))
                         task.wait()
-                        game:GetService("TeleportService"):TeleportToPlaceInstance(
-                            PlaceID, ID, game.Players.LocalPlayer)
+                        game:GetService("TeleportService"):TeleportToPlaceInstance(PlaceID, ID, game.Players.LocalPlayer)
                     end)
                     task.wait(4)
                 end
@@ -277,10 +344,8 @@ local function fullCycle()
     teleportTo(EVENT_COORDS)
     task.wait(1)
 
-    print(string.format("⏳ Ждём %d сек в ивенте...", EVENT_WAIT))
     task.wait(EVENT_WAIT)
 
-    print("▶ Фарм...")
     farm()
 
     serverHop()
@@ -289,9 +354,9 @@ end
 -- ===== АВТОЗАПУСК =====
 task.spawn(function()
     print("=== СКРИПТ ЗАПУЩЕН ===")
-    repeat task.wait(0.2) until game.Players.LocalPlayer
-    repeat task.wait(0.2) until game.Players.LocalPlayer.Character
-    repeat task.wait(0.2) until game.Players.LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+    repeat task.wait(0.2) until LocalPlayer
+    repeat task.wait(0.2) until LocalPlayer.Character
+    repeat task.wait(0.2) until LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
     if game.IsLoaded then
         repeat task.wait(0.2) until game:IsLoaded()
     end
@@ -312,4 +377,4 @@ game:GetService("UserInputService").InputBegan:Connect(function(input, gpe)
     end
 end)
 
-print("✅ Загружено. ГУИ: Magnus_Ocean77. T — стоп.")
+print("✅ Загружено. [B1ZE] / By Magnus_Ocean77. T — стоп.")
