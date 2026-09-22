@@ -2,7 +2,7 @@
 -- ===== НАСТРОЙКИ =====
 -- =====================
 local LOAD_WAIT  = 10   -- прогрузка после захода (сек)
-local EVENT_WAIT = 11    -- пауза после ТП в ивент (сек)
+local EVENT_WAIT = 10   -- пауза после ТП в ивент (сек)
 local TP_SETTLE  = 0.5  -- пауза после ТП на точку фарма (сек)
 local DELAY      = 0.3  -- пауза после клавиши ТНТ (сек)
 -- =====================
@@ -78,7 +78,6 @@ gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 gui.IgnoreGuiInset = true
 gui.Parent = game.CoreGui
 
--- Фон
 local bg = Instance.new("Frame")
 bg.Size = UDim2.new(1, 0, 1, 0)
 bg.BackgroundColor3 = BG_COLOR
@@ -87,7 +86,6 @@ bg.BorderSizePixel = 0
 bg.ZIndex = 1
 bg.Parent = gui
 
--- Контейнер
 local container = Instance.new("Frame")
 container.Size = UDim2.new(0, AVATAR_SIZE, 0, AVATAR_SIZE + 100)
 container.Position = UDim2.new(0.5, -AVATAR_SIZE/2, 0.5, -(AVATAR_SIZE + 100)/2)
@@ -95,7 +93,6 @@ container.BackgroundTransparency = 1
 container.ZIndex = 2
 container.Parent = gui
 
--- Голова
 local img = Instance.new("ImageLabel")
 img.Size = UDim2.new(0, AVATAR_SIZE, 0, AVATAR_SIZE)
 img.BackgroundTransparency = 1
@@ -104,7 +101,6 @@ img.ScaleType = Enum.ScaleType.Fit
 img.ZIndex = 3
 img.Parent = container
 
--- [B1ZE]
 local line1 = Instance.new("TextLabel")
 line1.Size = UDim2.new(1, 0, 0, 50)
 line1.Position = UDim2.new(0, 0, 0, AVATAR_SIZE + 5)
@@ -123,7 +119,6 @@ sizeC1.MaxTextSize = 45
 sizeC1.MinTextSize = 25
 sizeC1.Parent = line1
 
--- By Magnus_Ocean77
 local line2 = Instance.new("TextLabel")
 line2.Size = UDim2.new(1, 0, 0, 28)
 line2.Position = UDim2.new(0, 0, 0, AVATAR_SIZE + 55)
@@ -142,7 +137,6 @@ sizeC2.MaxTextSize = 22
 sizeC2.MinTextSize = 12
 sizeC2.Parent = line2
 
--- Кнопка скрыть/показать
 local btn = Instance.new("TextButton")
 btn.Size = UDim2.new(0, 110, 0, 32)
 btn.Position = UDim2.new(1, -120, 0, 10)
@@ -244,12 +238,8 @@ local function goToWorldSpot()
     local spot = WORLD_SPOTS[placeId]
 
     if not spot then
-        warn("❌ Твой PlaceId не в списке миров: " .. placeId)
         return false
     end
-
-    print("🌍 Определён мир: " .. spot.name .. " | PlaceId: " .. placeId)
-    print(string.format("🎉 ТП в ивент: %.2f, %.2f, %.2f", spot.pos.X, spot.pos.Y, spot.pos.Z))
 
     teleportTo(spot.pos)
     return true
@@ -262,7 +252,6 @@ local function farm()
     local currentStep = 0
 
     updateProgress(0, totalSteps)
-    print("▶ Фарм начался (" .. totalSteps .. " точек)")
 
     for _, layer in ipairs(layers) do
         if not running then break end
@@ -288,13 +277,10 @@ local function farm()
 
     running = false
     updateProgress(totalSteps, totalSteps)
-    print("✅ Фарм завершён")
 end
 
 -- ===== ТВОЙ СЕРВЕРХОП =====
 local function serverHop()
-    print("⬆ Серверхоп...")
-
     local PlaceID = game.PlaceId
     local AllIDs = {}
     local foundAnything = ""
@@ -367,7 +353,6 @@ end
 local function fullCycle()
     local ok = goToWorldSpot()
     if not ok then
-        warn("❌ Не удалось определить мир — фарм отменён")
         return
     end
 
@@ -380,9 +365,6 @@ end
 
 -- ===== АВТОЗАПУСК =====
 task.spawn(function()
-    print("=== СКРИПТ ЗАПУЩЕН ===")
-    print("PlaceId: " .. game.PlaceId)
-
     repeat task.wait(0.2) until LocalPlayer
     repeat task.wait(0.2) until LocalPlayer.Character
     repeat task.wait(0.2) until LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
@@ -390,10 +372,7 @@ task.spawn(function()
         repeat task.wait(0.2) until game:IsLoaded()
     end
 
-    print("⏳ Прогрузка " .. LOAD_WAIT .. " сек...")
     task.wait(LOAD_WAIT)
-
-    print("🚀 Старт цикла")
     fullCycle()
 end)
 
@@ -402,8 +381,5 @@ game:GetService("UserInputService").InputBegan:Connect(function(input, gpe)
     if gpe then return end
     if input.KeyCode == Enum.KeyCode.T then
         running = false
-        print("⏹ Стоп фарма")
     end
 end)
-
-print("✅ Загружено. [B1ZE] / By Magnus_Ocean77. T — стоп.")
