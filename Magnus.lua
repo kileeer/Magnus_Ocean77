@@ -1,14 +1,25 @@
+-- =====================
 -- ===== НАСТРОЙКИ =====
-local LOAD_WAIT = 10                      -- прогрузка после захода (сек)
-local EVENT_WAIT = 8                      -- пауза в ивенте (сек)
-local TP_SETTLE = 0.5                     -- пауза после ТП (сек)
-local DELAY = 0.3                         -- пауза после клавиши (сек)
+-- =====================
+local LOAD_WAIT  = 10   -- прогрузка после захода (сек)
+local EVENT_WAIT = 11    -- пауза после ТП в ивент (сек)
+local TP_SETTLE  = 0.5  -- пауза после ТП на точку фарма (сек)
+local DELAY      = 0.3  -- пауза после клавиши ТНТ (сек)
 -- =====================
 
--- Ивент мир
-local EVENT_COORDS = Vector3.new(-15845.41, 39.92, -196.47)
+-- =====================
+-- ===== ТОЧКИ ИВЕНТА ПО МИРАМ =====
+-- =====================
+local WORLD_SPOTS = {
+    [8737899170]      = {name = "Мир 1 (Map)",  pos = Vector3.new(179.04, 16.24, -142.15)},
+    [16498369169]     = {name = "Мир 2 (Map2)", pos = Vector3.new(-9954.08, 16.54, -287.74)},
+    [17503543197]     = {name = "Мир 3 (Map3)", pos = Vector3.new(-10256.35, 4.17, -7300.98)},
+    [140403681187145] = {name = "Мир 4 (Map4)", pos = Vector3.new(-15848.54, 39.92, -193.16)},
+}
 
--- X, Z точки фарма
+-- =====================
+-- ===== ТОЧКИ ФАРМА (X, Z) =====
+-- =====================
 local topLayer = {
     {5257.03, -8081.24},
     {5273.52, -8081.50},
@@ -42,23 +53,23 @@ local topLayer = {
     {5326.40, -8142.82},
 }
 
--- Слои: { Y, клавиша }
+-- ===== СЛОИ ТНТ =====
+-- { Y, клавиша, цвет }
 local layers = {
-    {16.25,   Enum.KeyCode.Two},
-    {-78.75,  Enum.KeyCode.Two},
-    {-283.75, Enum.KeyCode.Three},
+    {16.25,   Enum.KeyCode.Two,   Color3.fromRGB(0, 220, 0)},
+    {-78.75,  Enum.KeyCode.Two,   Color3.fromRGB(0, 220, 0)},
+    {-283.75, Enum.KeyCode.Three, Color3.fromRGB(255, 220, 0)},
 }
 
 -- =====================
 -- ===== ГУИ: АВАТАР B1ZE =====
 -- =====================
-
-local OWNER_USER_ID = 11205845971   -- твой UserId
-local LINE_1 = "[B1ZE]"
-local LINE_2 = "By Magnus_Ocean77"
-local BG_COLOR = Color3.fromRGB(20, 30, 60)
+local OWNER_USER_ID   = 11205845971
+local LINE_1          = "[B1ZE]"
+local LINE_2          = "By Magnus_Ocean77"
+local BG_COLOR        = Color3.fromRGB(20, 30, 60)
 local BG_TRANSPARENCY = 0.4
-local AVATAR_SIZE = 200
+local AVATAR_SIZE     = 200
 
 local gui = Instance.new("ScreenGui")
 gui.Name = "AvatarGui"
@@ -67,9 +78,8 @@ gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 gui.IgnoreGuiInset = true
 gui.Parent = game.CoreGui
 
--- Синий полупрозрачный фон
+-- Фон
 local bg = Instance.new("Frame")
-bg.Name = "Background"
 bg.Size = UDim2.new(1, 0, 1, 0)
 bg.BackgroundColor3 = BG_COLOR
 bg.BackgroundTransparency = BG_TRANSPARENCY
@@ -77,7 +87,7 @@ bg.BorderSizePixel = 0
 bg.ZIndex = 1
 bg.Parent = gui
 
--- Контейнер по центру
+-- Контейнер
 local container = Instance.new("Frame")
 container.Size = UDim2.new(0, AVATAR_SIZE, 0, AVATAR_SIZE + 100)
 container.Position = UDim2.new(0.5, -AVATAR_SIZE/2, 0.5, -(AVATAR_SIZE + 100)/2)
@@ -85,10 +95,9 @@ container.BackgroundTransparency = 1
 container.ZIndex = 2
 container.Parent = gui
 
--- Твоя голова
+-- Голова
 local img = Instance.new("ImageLabel")
 img.Size = UDim2.new(0, AVATAR_SIZE, 0, AVATAR_SIZE)
-img.Position = UDim2.new(0, 0, 0, 0)
 img.BackgroundTransparency = 1
 img.Image = "rbxthumb://type=AvatarHeadShot&id=" .. OWNER_USER_ID .. "&w=420&h=420"
 img.ScaleType = Enum.ScaleType.Fit
@@ -163,9 +172,7 @@ end)
 -- =====================
 -- ===== ПРОГРЕСС-БАР =====
 -- =====================
-
 local progressBg = Instance.new("Frame")
-progressBg.Name = "ProgressBg"
 progressBg.Size = UDim2.new(0, 400, 0, 30)
 progressBg.Position = UDim2.new(0.5, -200, 1, -50)
 progressBg.BackgroundColor3 = Color3.fromRGB(10, 15, 30)
@@ -176,7 +183,6 @@ progressBg.Parent = gui
 Instance.new("UICorner", progressBg).CornerRadius = UDim.new(0, 8)
 
 local progressFill = Instance.new("Frame")
-progressFill.Name = "ProgressFill"
 progressFill.Size = UDim2.new(0, 0, 1, 0)
 progressFill.BackgroundColor3 = Color3.fromRGB(60, 150, 255)
 progressFill.BorderSizePixel = 0
@@ -185,7 +191,6 @@ progressFill.Parent = progressBg
 Instance.new("UICorner", progressFill).CornerRadius = UDim.new(0, 8)
 
 local progressText = Instance.new("TextLabel")
-progressText.Name = "ProgressText"
 progressText.Size = UDim2.new(1, 0, 1, 0)
 progressText.BackgroundTransparency = 1
 progressText.Text = "0%"
@@ -197,16 +202,18 @@ progressText.TextSize = 14
 progressText.ZIndex = 7
 progressText.Parent = progressBg
 
-local function updateProgress(current, total)
+local function updateProgress(current, total, layerColor)
     local percent = math.floor((current / total) * 100)
     progressFill.Size = UDim2.new(percent / 100, 0, 1, 0)
+    if layerColor then
+        progressFill.BackgroundColor3 = layerColor
+    end
     progressText.Text = percent .. "% (" .. current .. "/" .. total .. ")"
 end
 
 -- =====================
 -- ===== ЛОГИКА ФАРМА =====
 -- =====================
-
 local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer
 local running = false
@@ -231,6 +238,23 @@ local function pressKey(key)
     vim:SendKeyEvent(false, key, false, game)
 end
 
+-- ===== ОПРЕДЕЛЕНИЕ МИРА И ТП НА ТОЧКУ ИВЕНТА =====
+local function goToWorldSpot()
+    local placeId = game.PlaceId
+    local spot = WORLD_SPOTS[placeId]
+
+    if not spot then
+        warn("❌ Твой PlaceId не в списке миров: " .. placeId)
+        return false
+    end
+
+    print("🌍 Определён мир: " .. spot.name .. " | PlaceId: " .. placeId)
+    print(string.format("🎉 ТП в ивент: %.2f, %.2f, %.2f", spot.pos.X, spot.pos.Y, spot.pos.Z))
+
+    teleportTo(spot.pos)
+    return true
+end
+
 local function farm()
     running = true
 
@@ -244,6 +268,7 @@ local function farm()
         if not running then break end
         local y = layer[1]
         local key = layer[2]
+        local layerColor = layer[3]
 
         for i, t in ipairs(topLayer) do
             if not running then break end
@@ -253,7 +278,7 @@ local function farm()
             teleportTo(pos)
 
             currentStep = currentStep + 1
-            updateProgress(currentStep, totalSteps)
+            updateProgress(currentStep, totalSteps, layerColor)
 
             task.wait(TP_SETTLE)
             pressKey(key)
@@ -340,20 +365,24 @@ end
 
 -- ===== ПОЛНЫЙ ЦИКЛ =====
 local function fullCycle()
-    print("🎉 ТП в ивент...")
-    teleportTo(EVENT_COORDS)
-    task.wait(1)
+    local ok = goToWorldSpot()
+    if not ok then
+        warn("❌ Не удалось определить мир — фарм отменён")
+        return
+    end
 
+    task.wait(1)
     task.wait(EVENT_WAIT)
 
     farm()
-
     serverHop()
 end
 
 -- ===== АВТОЗАПУСК =====
 task.spawn(function()
     print("=== СКРИПТ ЗАПУЩЕН ===")
+    print("PlaceId: " .. game.PlaceId)
+
     repeat task.wait(0.2) until LocalPlayer
     repeat task.wait(0.2) until LocalPlayer.Character
     repeat task.wait(0.2) until LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
