@@ -2,9 +2,10 @@
 -- ===== НАСТРОЙКИ =====
 -- =====================
 local LOAD_WAIT  = 10   -- прогрузка после захода (сек)
-local EVENT_WAIT = 10   -- пауза после ТП в ивент (сек)
+local EVENT_WAIT = 10    -- пауза после ТП в ивент (сек)
 local TP_SETTLE  = 0.5  -- пауза после ТП на точку фарма (сек)
 local DELAY      = 0.3  -- пауза после клавиши ТНТ (сек)
+local FIRST_TP_WAIT = 1 -- пауза после ПЕРВОГО ТП (сек) — только 1 раз
 -- =====================
 
 -- =====================
@@ -250,6 +251,7 @@ local function farm()
 
     local totalSteps = #layers * #topLayer
     local currentStep = 0
+    local firstTpDone = false   -- флаг: был ли уже первый ТП
 
     updateProgress(0, totalSteps)
 
@@ -268,6 +270,12 @@ local function farm()
 
             currentStep = currentStep + 1
             updateProgress(currentStep, totalSteps, layerColor)
+
+            -- Пауза 1 сек после САМОГО ПЕРВОГО ТП (только 1 раз)
+            if not firstTpDone and t[1] == 5257.03 and t[2] == -8081.24 then
+                firstTpDone = true
+                task.wait(FIRST_TP_WAIT)
+            end
 
             task.wait(TP_SETTLE)
             pressKey(key)
