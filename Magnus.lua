@@ -2,10 +2,12 @@
 -- ===== НАСТРОЙКИ =====
 -- =====================
 local LOAD_WAIT  = 10   -- прогрузка после захода (сек)
-local EVENT_WAIT = 10    -- пауза после ТП в ивент (сек)
+local EVENT_WAIT = 6    -- пауза после ТП в ивент (сек)
+local PRE_FARM_TP = Vector3.new(5225.01, 16.20, -8114.44)   -- доп. точка ТП перед фармом
+local PRE_FARM_WAIT = 1  -- пауза после этого ТП (сек)
 local TP_SETTLE  = 0.5  -- пауза после ТП на точку фарма (сек)
 local DELAY      = 0.3  -- пауза после клавиши ТНТ (сек)
-local FIRST_TP_WAIT = 2 -- пауза после ПЕРВОГО ТП (сек) — только 1 раз
+local FIRST_TP_WAIT = 1 -- пауза после ПЕРВОГО ТП фарма (сек) — только 1 раз
 -- =====================
 
 -- =====================
@@ -251,7 +253,7 @@ local function farm()
 
     local totalSteps = #layers * #topLayer
     local currentStep = 0
-    local firstTpDone = false   -- флаг: был ли уже первый ТП
+    local firstTpDone = false
 
     updateProgress(0, totalSteps)
 
@@ -364,9 +366,15 @@ local function fullCycle()
         return
     end
 
+    -- Пауза после ТП в ивент
     task.wait(1)
-    task.wait(EVENT_WAIT)
+    task.wait(EVENT_WAIT)   -- 6 сек
 
+    -- Доп. ТП перед фармом
+    teleportTo(PRE_FARM_TP)
+    task.wait(PRE_FARM_WAIT)   -- 1 сек
+
+    -- Обычный фарм
     farm()
     serverHop()
 end
