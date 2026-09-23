@@ -60,7 +60,7 @@ local layers = {
     {16.25,    Enum.KeyCode.Two,   Color3.fromRGB(0, 220, 0)},
     {-78.75,   Enum.KeyCode.Two,   Color3.fromRGB(0, 220, 0)},
     {-283.75,  Enum.KeyCode.Three, Color3.fromRGB(255, 220, 0)},
-    {-384.77,  Enum.KeyCode.Three, Color3.fromRGB(255, 220, 0)},
+    {-385.77,  Enum.KeyCode.Three, Color3.fromRGB(255, 220, 0)},
 }
 
 -- =====================
