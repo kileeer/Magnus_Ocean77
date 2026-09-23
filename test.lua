@@ -2,10 +2,10 @@
 -- ===== НАСТРОЙКИ =====
 -- =====================
 local LOAD_WAIT  = 10   -- прогрузка после захода (сек)
-local EVENT_WAIT = 8    -- пауза после ТП в ивент (сек)
+local EVENT_WAIT = 6    -- пауза после ТП в ивент (сек)
 local TP_SETTLE  = 0.5  -- пауза после ТП на точку фарма (сек)
 local DELAY      = 0.3  -- пауза после клавиши ТНТ (сек)
-local FIRST_TP_WAIT = 1 -- пауза после ПЕРВОГО ТП (сек) — только 1 раз
+local FIRST_TP_WAIT = 1 -- пауза после ПЕРВОГО ТП фарма (сек) — только 1 раз
 -- =====================
 
 -- =====================
@@ -57,9 +57,10 @@ local topLayer = {
 -- ===== СЛОИ ТНТ =====
 -- { Y, клавиша, цвет }
 local layers = {
-    {16.25,   Enum.KeyCode.Two,   Color3.fromRGB(0, 220, 0)},
-    {-78.75,  Enum.KeyCode.Two,   Color3.fromRGB(0, 220, 0)},
-    {-283.75, Enum.KeyCode.Three, Color3.fromRGB(255, 220, 0)},
+    {16.25,    Enum.KeyCode.Two,   Color3.fromRGB(0, 220, 0)},
+    {-78.75,   Enum.KeyCode.Two,   Color3.fromRGB(0, 220, 0)},
+    {-283.75,  Enum.KeyCode.Three, Color3.fromRGB(255, 220, 0)},
+    {-384.77,  Enum.KeyCode.Three, Color3.fromRGB(255, 220, 0)},
 }
 
 -- =====================
@@ -251,7 +252,7 @@ local function farm()
 
     local totalSteps = #layers * #topLayer
     local currentStep = 0
-    local firstTpDone = false   -- флаг: был ли уже первый ТП
+    local firstTpDone = false
 
     updateProgress(0, totalSteps)
 
