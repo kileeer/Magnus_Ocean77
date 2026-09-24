@@ -1,9 +1,9 @@
 -- ===== НАСТРОЙКИ =====
-local LOAD_WAIT  = 10
-local EVENT_WAIT = 6
-local TP_SETTLE  = 0.5
-local DELAY      = 0.3
-local FIRST_TP_WAIT = 1
+local LOAD_WAIT  = 10   -- прогрузка после захода (сек)
+local EVENT_WAIT = 6    -- пауза после ТП в ивент (сек)
+local TP_SETTLE  = 0.5  -- пауза после ТП на точку фарма (сек)
+local DELAY      = 0.3  -- пауза после бомбы (сек)
+local FIRST_TP_WAIT = 1 -- пауза после ПЕРВОГО ТП (сек) — только 1 раз
 -- =====================
 
 -- =====================
@@ -11,7 +11,8 @@ local FIRST_TP_WAIT = 1
 -- =====================
 local UIS = game:GetService("UserInputService")
 local isMobile = UIS.TouchEnabled and not UIS.KeyboardEnabled
-print("🎯 Платформа: " .. (isMobile and "📱 Телефон" or "💻 ПК"))
+local platformName = isMobile and "📱 Телефон" or "💻 ПК"
+print("🎯 Платформа: " .. platformName)
 
 -- =====================
 -- ===== ТОЧКИ ИВЕНТА ПО МИРАМ =====
@@ -27,14 +28,47 @@ local WORLD_SPOTS = {
 -- ===== ТОЧКИ ФАРМА (X, Z) =====
 -- =====================
 local topLayer = {
-    {5257.03, -8081.24}, {5273.52, -8081.50}, {5287.39, -8081.79}, {5301.26, -8081.82},
-    {5318.57, -8082.13}, {5327.37, -8083.18}, {5328.37, -8097.26}, {5312.77, -8097.05},
-    {5297.21, -8096.84}, {5283.34, -8096.65}, {5267.78, -8096.44}, {5253.91, -8096.26},
-    {5257.02, -8111.70}, {5270.89, -8111.82}, {5286.49, -8112.03}, {5286.88, -8130.85},
-    {5302.09, -8112.25}, {5317.70, -8112.46}, {5326.37, -8112.58}, {5321.34, -8127.49},
-    {5309.25, -8126.51}, {5293.65, -8126.62}, {5276.34, -8126.54}, {5262.47, -8126.48},
-    {5253.80, -8126.45}, {5257.11, -8141.37}, {5270.98, -8142.05}, {5286.55, -8142.82},
-    {5302.16, -8142.82}, {5317.73, -8142.82}, {5326.40, -8142.82},
+    {5257.03, -8081.24},
+    {5273.52, -8081.50},
+    {5287.39, -8081.79},
+    {5301.26, -8081.82},
+    {5318.57, -8082.13},
+    {5327.37, -8083.18},
+    {5328.37, -8097.26},
+    {5312.77, -8097.05},
+    {5297.21, -8096.84},
+    {5283.34, -8096.65},
+    {5267.78, -8096.44},
+    {5253.91, -8096.26},
+    {5257.02, -8111.70},
+    {5270.89, -8111.82},
+    {5286.49, -8112.03},
+    {5302.09, -8112.25},
+    {5317.70, -8112.46},
+    {5326.37, -8112.58},
+    {5321.34, -8127.49},
+    {5309.25, -8126.51},
+    {5293.65, -8126.62},
+    {5276.34, -8126.54},
+    {5262.47, -8126.48},
+    {5253.80, -8126.45},
+    {5257.11, -8141.37},
+    {5270.98, -8142.05},
+    {5286.55, -8142.82},
+    {5302.16, -8142.82},
+    {5317.73, -8142.82},
+    {5326.40, -8142.82},
+}
+
+-- =====================
+-- ===== СЛОИ БОМБ =====
+-- =====================
+-- { Y, название бомбы ("green" / "yellow"), цвет }
+local layers = {
+    {16.25,   "green",  Color3.fromRGB(0, 220, 0)},    -- 🟢
+    {-78.75,  "green",  Color3.fromRGB(0, 220, 0)},    -- 🟢
+    {-283.75, "yellow", Color3.fromRGB(255, 220, 0)},  -- 🟡
+    {-386.77, "yellow", Color3.fromRGB(255, 220, 0)},  -- 🟡
 }
 
 -- =====================
@@ -42,50 +76,35 @@ local topLayer = {
 -- =====================
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Save = require(ReplicatedStorage.Library.Client.Save)
+local Network = ReplicatedStorage:WaitForChild("Network")
+local ConsumablesEvent = Network:WaitForChild("Consumables_Consume")
 
 local BOMB_UIDS = {
     green = nil,  -- Drill Array
     yellow = nil, -- Core Charge
 }
 
--- Ищем UID в инвентаре
 local function findBombUIDs()
     local data = Save.Get()
     if not data or not data.Inventory or not data.Inventory.Consumable then
         warn("❌ Не удалось получить инвентарь")
         return false
     end
-
     for uid, core in pairs(data.Inventory.Consumable) do
         if core.id == "Drill Array" then
             BOMB_UIDS.green = uid
-            print("🟢 Drill Array (зелёный) UID: " .. uid)
+            print("🟢 Drill Array UID: " .. uid)
         elseif core.id == "Core Charge" then
             BOMB_UIDS.yellow = uid
-            print("🟡 Core Charge (жёлтый) UID: " .. uid)
+            print("🟡 Core Charge UID: " .. uid)
         end
     end
-
-    if not BOMB_UIDS.green then warn("❌ Не найден Drill Array (зелёный)") end
-    if not BOMB_UIDS.yellow then warn("❌ Не найден Core Charge (жёлтый)") end
-
+    if not BOMB_UIDS.green then warn("❌ Не найден Drill Array") end
+    if not BOMB_UIDS.yellow then warn("❌ Не найден Core Charge") end
     return BOMB_UIDS.green ~= nil and BOMB_UIDS.yellow ~= nil
 end
 
-if not findBombUIDs() then
-    warn("❌ Не все бомбы найдены, фарм может не работать")
-end
-
--- =====================
--- ===== СЛОИ БОМБ =====
--- =====================
--- Теперь используем название бомбы, а UID будет подставляться из BOMB_UIDS
-local layers = {
-    {16.25,   "green",  Color3.fromRGB(0, 220, 0)},   -- 🟢
-    {-183,    "yellow", Color3.fromRGB(255, 220, 0)}, -- 🟡
-    {-283.75, "yellow", Color3.fromRGB(255, 220, 0)}, -- 🟡
-    {-384.77, "yellow", Color3.fromRGB(255, 220, 0)}, -- 🟡
-}
+findBombUIDs()
 
 -- =====================
 -- ===== ГУИ: АВАТАР B1ZE =====
@@ -238,9 +257,6 @@ local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer
 local running = false
 
-local Network = ReplicatedStorage:WaitForChild("Network")
-local ConsumablesEvent = Network:WaitForChild("Consumables_Consume")
-
 local function getHRP()
     local char = LocalPlayer.Character
     return char and char:FindFirstChild("HumanoidRootPart")
@@ -254,19 +270,14 @@ local function teleportTo(pos)
     hrp.CFrame = CFrame.new(pos)
 end
 
--- 🧨 Использовать бомбу по её UID
 local function useBomb(bombKey)
     local uid = BOMB_UIDS[bombKey]
-    if not uid then
-        warn("❌ Нет UID для бомбы: " .. tostring(bombKey))
-        return
-    end
+    if not uid then return end
     pcall(function()
         ConsumablesEvent:InvokeServer(uid, 1)
     end)
 end
 
--- ===== ОПРЕДЕЛЕНИЕ МИРА =====
 local function goToWorldSpot()
     local placeId = game.PlaceId
     local spot = WORLD_SPOTS[placeId]
@@ -328,7 +339,9 @@ local function serverHop()
     local AllIDs = {}
     local foundAnything = ""
     local actualHour = os.date("!*t").hour
-    local File = pcall(function() AllIDs = game:GetService('HttpService'):JSONDecode(readfile("NotSameServers.json")) end)
+    local File = pcall(function()
+        AllIDs = game:GetService('HttpService'):JSONDecode(readfile("NotSameServers.json"))
+    end)
     if not File then
         table.insert(AllIDs, actualHour)
         writefile("NotSameServers.json", game:GetService('HttpService'):JSONEncode(AllIDs))
@@ -342,7 +355,9 @@ local function serverHop()
             Site = game.HttpService:JSONDecode(game:HttpGet('https://games.roblox.com/v1/games/' .. PlaceID .. '/servers/Public?sortOrder=Asc&limit=100&cursor=' .. foundAnything))
         end
         local ID = ""
-        if Site.nextPageCursor and Site.nextPageCursor ~= "null" and Site.nextPageCursor ~= nil then foundAnything = Site.nextPageCursor end
+        if Site.nextPageCursor and Site.nextPageCursor ~= "null" and Site.nextPageCursor ~= nil then
+            foundAnything = Site.nextPageCursor
+        end
         local num = 0
         for i, v in pairs(Site.data) do
             local Possible = true
@@ -350,7 +365,9 @@ local function serverHop()
             if tonumber(v.maxPlayers) > tonumber(v.playing) then
                 for _, Existing in pairs(AllIDs) do
                     if num ~= 0 then
-                        if ID == tostring(Existing) then Possible = false end
+                        if ID == tostring(Existing) then
+                            Possible = false
+                        end
                     else
                         if tonumber(actualHour) ~= tonumber(Existing) then
                             pcall(function()
@@ -379,7 +396,9 @@ local function serverHop()
     while task.wait() do
         pcall(function()
             TPReturner()
-            if foundAnything ~= "" then TPReturner() end
+            if foundAnything ~= "" then
+                TPReturner()
+            end
         end)
     end
 end
