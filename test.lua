@@ -43,6 +43,7 @@ local topLayer = {
     {5257.02, -8111.70},
     {5270.89, -8111.82},
     {5286.49, -8112.03},
+    {5286.88, -8130.85},
     {5302.09, -8112.25},
     {5317.70, -8112.46},
     {5326.37, -8112.58},
@@ -68,7 +69,7 @@ local layers = {
     {16.25,   "green",  Color3.fromRGB(0, 220, 0)},    -- 🟢
     {-78.75,  "green",  Color3.fromRGB(0, 220, 0)},    -- 🟢
     {-283.75, "yellow", Color3.fromRGB(255, 220, 0)},  -- 🟡
-    {-386.77, "yellow", Color3.fromRGB(255, 220, 0)},  -- 🟡
+    {-384.77, "yellow", Color3.fromRGB(255, 220, 0)},  -- 🟡
 }
 
 -- =====================
@@ -99,8 +100,8 @@ local function findBombUIDs()
             print("🟡 Core Charge UID: " .. uid)
         end
     end
-    if not BOMB_UIDS.green then warn("❌ Не найден Drill Array") end
-    if not BOMB_UIDS.yellow then warn("❌ Не найден Core Charge") end
+    if not BOMB_UIDS.green then warn("❌ Не найден Drill Array (зелёный)") end
+    if not BOMB_UIDS.yellow then warn("❌ Не найден Core Charge (жёлтый)") end
     return BOMB_UIDS.green ~= nil and BOMB_UIDS.yellow ~= nil
 end
 
@@ -209,7 +210,7 @@ btn.MouseButton1Click:Connect(function()
 end)
 
 -- =====================
--- ===== ПРОГРЕСС-БАР =====
+-- ===== ПРОГРЕСС-БАР =====================
 -- =====================
 local progressBg = Instance.new("Frame")
 progressBg.Size = UDim2.new(0, 400, 0, 30)
