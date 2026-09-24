@@ -7,10 +7,26 @@ local FIRST_TP_WAIT = 1 -- пауза после ПЕРВОГО ТП (сек) �
 -- =====================
 
 -- =====================
--- ===== ПЛАТФОРМА =====
+-- ===== АВТООПРЕДЕЛЕНИЕ ПЛАТФОРМЫ =====
 -- =====================
 local UIS = game:GetService("UserInputService")
+
 local isMobile = UIS.TouchEnabled and not UIS.KeyboardEnabled
+local isPC     = UIS.KeyboardEnabled and UIS.MouseEnabled
+local platformName = "❓ Неизвестно"
+
+if isMobile then
+    platformName = "📱 Телефон"
+elseif isPC then
+    platformName = "💻 ПК"
+end
+
+print("═══════════════════════════")
+print("🎯 Платформа: " .. platformName)
+print("   TouchEnabled: " .. tostring(UIS.TouchEnabled))
+print("   KeyboardEnabled: " .. tostring(UIS.KeyboardEnabled))
+print("   MouseEnabled: " .. tostring(UIS.MouseEnabled))
+print("═══════════════════════════")
 
 -- =====================
 -- ===== ТОЧКИ ИВЕНТА ПО МИРАМ =====
@@ -183,6 +199,21 @@ btn.MouseButton1Click:Connect(function()
     btn.Text = visible and "👁 Скрыть" or "👁 Показать"
 end)
 
+-- Индикатор платформы (правый верхний угол)
+local platformLbl = Instance.new("TextLabel")
+platformLbl.Size = UDim2.new(0, 180, 0, 26)
+platformLbl.Position = UDim2.new(1, -190, 0, 48)
+platformLbl.BackgroundColor3 = Color3.fromRGB(10, 15, 30)
+platformLbl.BackgroundTransparency = 0.3
+platformLbl.BorderSizePixel = 0
+platformLbl.Text = platformName
+platformLbl.TextColor3 = Color3.fromRGB(150, 220, 255)
+platformLbl.Font = Enum.Font.GothamBold
+platformLbl.TextSize = 13
+platformLbl.ZIndex = 5
+platformLbl.Parent = gui
+Instance.new("UICorner", platformLbl).CornerRadius = UDim.new(0, 6)
+
 -- =====================
 -- ===== ПРОГРЕСС-БАР =====
 -- =====================
@@ -252,16 +283,23 @@ end
 -- 🧨 Бомба с учётом платформы
 local function useBomb(bombData)
     local id = isMobile and bombData.mobile or bombData.pc
-    pcall(function()
+    local ok, err = pcall(function()
         ConsumablesEvent:InvokeServer(id, 1)
     end)
+    if not ok then
+        warn("❌ Ошибка бомбы: " .. tostring(err))
+    end
 end
 
 -- ===== ОПРЕДЕЛЕНИЕ МИРА =====
 local function goToWorldSpot()
     local placeId = game.PlaceId
     local spot = WORLD_SPOTS[placeId]
-    if not spot then return false end
+    if not spot then
+        warn("❌ Мир не найден: " .. placeId)
+        return false
+    end
+    print("🌍 Мир: " .. spot.name)
     teleportTo(spot.pos)
     return true
 end
@@ -274,6 +312,7 @@ local function farm()
     local firstTpDone = false
 
     updateProgress(0, totalSteps)
+    print("▶ Фарм начался (" .. totalSteps .. " точек)")
 
     for _, layer in ipairs(layers) do
         if not running then break end
@@ -305,10 +344,13 @@ local function farm()
 
     running = false
     updateProgress(totalSteps, totalSteps)
+    print("✅ Фарм завершён")
 end
 
 -- ===== СЕРВЕРХОП =====
 local function serverHop()
+    print("⬆ Серверхоп...")
+
     local PlaceID = game.PlaceId
     local AllIDs = {}
     local foundAnything = ""
@@ -391,13 +433,20 @@ end
 
 -- ===== АВТОЗАПУСК =====
 task.spawn(function()
+    print("=== СКРИПТ ЗАПУЩЕН ===")
+    print("PlaceId: " .. game.PlaceId)
+
     repeat task.wait(0.2) until LocalPlayer
     repeat task.wait(0.2) until LocalPlayer.Character
     repeat task.wait(0.2) until LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
     if game.IsLoaded then
         repeat task.wait(0.2) until game:IsLoaded()
     end
+
+    print("⏳ Прогрузка " .. LOAD_WAIT .. " сек...")
     task.wait(LOAD_WAIT)
+
+    print("🚀 Старт цикла")
     fullCycle()
 end)
 
@@ -406,5 +455,11 @@ UIS.InputBegan:Connect(function(input, gpe)
     if gpe then return end
     if input.KeyCode == Enum.KeyCode.T then
         running = false
+        print("⏹ Стоп фарма")
     end
 end)
+
+print("✅ Magnus B1ZE загружено")
+print("🎯 Платформа: " .. platformName)
+print("🟢 Зелёный ID: " .. (isMobile and "a1da7eac..." or "f20900f7..."))
+print("🟡 Жёлтый ID: " .. (isMobile and "cceefe8e..." or "5784e198..."))
