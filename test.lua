@@ -1,11 +1,9 @@
--- =====================
 -- ===== НАСТРОЙКИ =====
--- =====================
 local LOAD_WAIT  = 10   -- прогрузка после захода (сек)
 local EVENT_WAIT = 6    -- пауза после ТП в ивент (сек)
 local TP_SETTLE  = 0.5  -- пауза после ТП на точку фарма (сек)
-local DELAY      = 0.3  -- пауза после клавиши ТНТ (сек)
-local FIRST_TP_WAIT = 1 -- пауза после ПЕРВОГО ТП фарма (сек) — только 1 раз
+local DELAY      = 0.3  -- пауза после бомбы (сек)
+local FIRST_TP_WAIT = 1 -- пауза после ПЕРВОГО ТП (сек) — только 1 раз
 -- =====================
 
 -- =====================
@@ -37,6 +35,7 @@ local topLayer = {
     {5257.02, -8111.70},
     {5270.89, -8111.82},
     {5286.49, -8112.03},
+    {5286.88, -8130.85},
     {5302.09, -8112.25},
     {5317.70, -8112.46},
     {5326.37, -8112.58},
@@ -54,13 +53,18 @@ local topLayer = {
     {5326.40, -8142.82},
 }
 
+-- =====================
 -- ===== СЛОИ ТНТ =====
--- { Y, клавиша, цвет }
+-- =====================
+-- { Y, ID, цвет, название }
+local TNT_GREEN  = "f20900f76ddf4996a49ceef24dae9ea1"   -- 🟢 зелёный
+local TNT_YELLOW = "5784e1982d0a413884cc69347181b1f9"   -- 🟡 жёлтый
+
 local layers = {
-    {16.25,    Enum.KeyCode.Two,   Color3.fromRGB(0, 220, 0)},
-    {-78.75,   Enum.KeyCode.Two,   Color3.fromRGB(0, 220, 0)},
-    {-283.75,  Enum.KeyCode.Three, Color3.fromRGB(255, 220, 0)},
-    {-385.77,  Enum.KeyCode.Three, Color3.fromRGB(255, 220, 0)},
+    {16.25,   TNT_GREEN,  Color3.fromRGB(0, 220, 0),   "🟢 Зелёный"},
+    {-183,    TNT_YELLOW, Color3.fromRGB(255, 220, 0), "🟡 Жёлтый"},
+    {-283.75, TNT_YELLOW, Color3.fromRGB(255, 220, 0), "🟡 Жёлтый"},
+    {-384.77, TNT_YELLOW, Color3.fromRGB(255, 220, 0), "🟡 Жёлтый"},
 }
 
 -- =====================
@@ -208,11 +212,15 @@ local function updateProgress(current, total, layerColor)
 end
 
 -- =====================
--- ===== ЛОГИКА ФАРМА =====
+-- ===== ЛОГИКА =====
 -- =====================
 local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local LocalPlayer = Players.LocalPlayer
 local running = false
+
+local Network = ReplicatedStorage:WaitForChild("Network")
+local ConsumablesEvent = Network:WaitForChild("Consumables_Consume")
 
 local function getHRP()
     local char = LocalPlayer.Character
@@ -227,22 +235,18 @@ local function teleportTo(pos)
     hrp.CFrame = CFrame.new(pos)
 end
 
-local function pressKey(key)
-    local vim = game:GetService("VirtualInputManager")
-    vim:SendKeyEvent(true, key, false, game)
-    task.wait(0.05)
-    vim:SendKeyEvent(false, key, false, game)
+-- 🧨 Использовать бомбу через Consumables_Consume
+local function useBomb(id)
+    pcall(function()
+        ConsumablesEvent:InvokeServer(id, 1)
+    end)
 end
 
--- ===== ОПРЕДЕЛЕНИЕ МИРА И ТП НА ТОЧКУ ИВЕНТА =====
+-- ===== ОПРЕДЕЛЕНИЕ МИРА =====
 local function goToWorldSpot()
     local placeId = game.PlaceId
     local spot = WORLD_SPOTS[placeId]
-
-    if not spot then
-        return false
-    end
-
+    if not spot then return false end
     teleportTo(spot.pos)
     return true
 end
@@ -259,7 +263,7 @@ local function farm()
     for _, layer in ipairs(layers) do
         if not running then break end
         local y = layer[1]
-        local key = layer[2]
+        local bombId = layer[2]
         local layerColor = layer[3]
 
         for i, t in ipairs(topLayer) do
@@ -272,14 +276,14 @@ local function farm()
             currentStep = currentStep + 1
             updateProgress(currentStep, totalSteps, layerColor)
 
-            -- Пауза 1 сек после САМОГО ПЕРВОГО ТП (только 1 раз)
+            -- Пауза 1 сек после первого ТП
             if not firstTpDone and t[1] == 5257.03 and t[2] == -8081.24 then
                 firstTpDone = true
                 task.wait(FIRST_TP_WAIT)
             end
 
             task.wait(TP_SETTLE)
-            pressKey(key)
+            useBomb(bombId)      -- 🧨 бомба вместо клавиши
             task.wait(DELAY)
         end
     end
@@ -288,7 +292,7 @@ local function farm()
     updateProgress(totalSteps, totalSteps)
 end
 
--- ===== ТВОЙ СЕРВЕРХОП =====
+-- ===== СЕРВЕРХОП =====
 local function serverHop()
     local PlaceID = game.PlaceId
     local AllIDs = {}
@@ -361,9 +365,7 @@ end
 -- ===== ПОЛНЫЙ ЦИКЛ =====
 local function fullCycle()
     local ok = goToWorldSpot()
-    if not ok then
-        return
-    end
+    if not ok then return end
 
     task.wait(1)
     task.wait(EVENT_WAIT)
@@ -380,7 +382,6 @@ task.spawn(function()
     if game.IsLoaded then
         repeat task.wait(0.2) until game:IsLoaded()
     end
-
     task.wait(LOAD_WAIT)
     fullCycle()
 end)
@@ -390,5 +391,6 @@ game:GetService("UserInputService").InputBegan:Connect(function(input, gpe)
     if gpe then return end
     if input.KeyCode == Enum.KeyCode.T then
         running = false
+        print("⏹ Стоп фарма")
     end
 end)
