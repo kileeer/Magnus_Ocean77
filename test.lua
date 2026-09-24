@@ -296,74 +296,19 @@ local function farm()
     print("✅ Фарм завершён")
 end
 
--- ===== СЕРВЕРХОП =====
-local function serverHop()
-    print("⬆ Серверхоп...")
-    local PlaceID = game.PlaceId
-    local AllIDs = {}
-    local foundAnything = ""
-    local actualHour = os.date("!*t").hour
-    local File = pcall(function()
-        AllIDs = game:GetService('HttpService'):JSONDecode(readfile("NotSameServers.json"))
-    end)
-    if not File then
-        table.insert(AllIDs, actualHour)
-        writefile("NotSameServers.json", game:GetService('HttpService'):JSONEncode(AllIDs))
-    end
+-- ===== РЕДЖОИН =====
+local function rejoin()
+    print("🔄 Реджоин...")
+    local TeleportService = game:GetService("TeleportService")
+    local Players = game:GetService("Players")
+    local player = Players.LocalPlayer
 
-    local function TPReturner()
-        local Site
-        if foundAnything == "" then
-            Site = game.HttpService:JSONDecode(game:HttpGet('https://games.roblox.com/v1/games/' .. PlaceID .. '/servers/Public?sortOrder=Asc&limit=100'))
-        else
-            Site = game.HttpService:JSONDecode(game:HttpGet('https://games.roblox.com/v1/games/' .. PlaceID .. '/servers/Public?sortOrder=Asc&limit=100&cursor=' .. foundAnything))
-        end
-        local ID = ""
-        if Site.nextPageCursor and Site.nextPageCursor ~= "null" and Site.nextPageCursor ~= nil then
-            foundAnything = Site.nextPageCursor
-        end
-        local num = 0
-        for i, v in pairs(Site.data) do
-            local Possible = true
-            ID = tostring(v.id)
-            if tonumber(v.maxPlayers) > tonumber(v.playing) then
-                for _, Existing in pairs(AllIDs) do
-                    if num ~= 0 then
-                        if ID == tostring(Existing) then
-                            Possible = false
-                        end
-                    else
-                        if tonumber(actualHour) ~= tonumber(Existing) then
-                            pcall(function()
-                                delfile("NotSameServers.json")
-                                AllIDs = {}
-                                table.insert(AllIDs, actualHour)
-                            end)
-                        end
-                    end
-                    num = num + 1
-                end
-                if Possible == true then
-                    table.insert(AllIDs, ID)
-                    task.wait()
-                    pcall(function()
-                        writefile("NotSameServers.json", game:GetService('HttpService'):JSONEncode(AllIDs))
-                        task.wait()
-                        game:GetService("TeleportService"):TeleportToPlaceInstance(PlaceID, ID, game.Players.LocalPlayer)
-                    end)
-                    task.wait(4)
-                end
-            end
-        end
-    end
-
-    while task.wait() do
-        pcall(function()
-            TPReturner()
-            if foundAnything ~= "" then
-                TPReturner()
-            end
-        end)
+    if #Players:GetPlayers() <= 1 then
+        player:Kick("\nRejoining...")
+        task.wait(0.3)
+        TeleportService:Teleport(game.PlaceId, player)
+    else
+        TeleportService:TeleportToPlaceInstance(game.PlaceId, game.JobId, player)
     end
 end
 
@@ -374,7 +319,7 @@ local function fullCycle()
     task.wait(1)
     task.wait(EVENT_WAIT)
     farm()
-    serverHop()
+    rejoin()
 end
 
 -- ===== АВТОЗАПУСК =====
@@ -400,4 +345,4 @@ UIS.InputBegan:Connect(function(input, gpe)
     end
 end)
 
-print("✅ Magnus B1ZE загружено (через хотбар)")
+print("✅ Magnus B1ZE загружено (через хотбар + реджоин)")
