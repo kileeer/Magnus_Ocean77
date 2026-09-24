@@ -7,6 +7,12 @@ local FIRST_TP_WAIT = 1 -- пауза после ПЕРВОГО ТП (сек) �
 -- =====================
 
 -- =====================
+-- ===== ПЛАТФОРМА =====
+-- =====================
+local UIS = game:GetService("UserInputService")
+local isMobile = UIS.TouchEnabled and not UIS.KeyboardEnabled
+
+-- =====================
 -- ===== ТОЧКИ ИВЕНТА ПО МИРАМ =====
 -- =====================
 local WORLD_SPOTS = {
@@ -54,17 +60,25 @@ local topLayer = {
 }
 
 -- =====================
--- ===== СЛОИ ТНТ =====
+-- ===== СЛОИ БОМБ =====
 -- =====================
--- { Y, ID, цвет, название }
-local TNT_GREEN  = "f20900f76ddf4996a49ceef24dae9ea1"   -- 🟢 зелёный
-local TNT_YELLOW = "5784e1982d0a413884cc69347181b1f9"   -- 🟡 жёлтый
-
+-- { Y, {pc = "ID_PC", mobile = "ID_MOB"}, цвет }
 local layers = {
-    {16.25,   TNT_GREEN,  Color3.fromRGB(0, 220, 0),   "🟢 Зелёный"},
-    {-183,    TNT_YELLOW, Color3.fromRGB(255, 220, 0), "🟡 Жёлтый"},
-    {-283.75, TNT_YELLOW, Color3.fromRGB(255, 220, 0), "🟡 Жёлтый"},
-    {-384.77, TNT_YELLOW, Color3.fromRGB(255, 220, 0), "🟡 Жёлтый"},
+    {16.25,
+        {pc = "f20900f76ddf4996a49ceef24dae9ea1", mobile = "a1da7eacd6d6418ca905c1d0fda160e7"},
+        Color3.fromRGB(0, 220, 0)},       -- 🟢 Зелёный
+
+    {-183,
+        {pc = "5784e1982d0a413884cc69347181b1f9", mobile = "cceefe8e9c77451fa233784980489fc1"},
+        Color3.fromRGB(255, 220, 0)},     -- 🟡 Жёлтый
+
+    {-283.75,
+        {pc = "5784e1982d0a413884cc69347181b1f9", mobile = "cceefe8e9c77451fa233784980489fc1"},
+        Color3.fromRGB(255, 220, 0)},     -- 🟡 Жёлтый
+
+    {-384.77,
+        {pc = "5784e1982d0a413884cc69347181b1f9", mobile = "cceefe8e9c77451fa233784980489fc1"},
+        Color3.fromRGB(255, 220, 0)},     -- 🟡 Жёлтый
 }
 
 -- =====================
@@ -235,8 +249,9 @@ local function teleportTo(pos)
     hrp.CFrame = CFrame.new(pos)
 end
 
--- 🧨 Использовать бомбу через Consumables_Consume
-local function useBomb(id)
+-- 🧨 Бомба с учётом платформы
+local function useBomb(bombData)
+    local id = isMobile and bombData.mobile or bombData.pc
     pcall(function()
         ConsumablesEvent:InvokeServer(id, 1)
     end)
@@ -263,7 +278,7 @@ local function farm()
     for _, layer in ipairs(layers) do
         if not running then break end
         local y = layer[1]
-        local bombId = layer[2]
+        local bombData = layer[2]
         local layerColor = layer[3]
 
         for i, t in ipairs(topLayer) do
@@ -283,7 +298,7 @@ local function farm()
             end
 
             task.wait(TP_SETTLE)
-            useBomb(bombId)      -- 🧨 бомба вместо клавиши
+            useBomb(bombData)
             task.wait(DELAY)
         end
     end
@@ -387,10 +402,9 @@ task.spawn(function()
 end)
 
 -- ===== УПРАВЛЕНИЕ =====
-game:GetService("UserInputService").InputBegan:Connect(function(input, gpe)
+UIS.InputBegan:Connect(function(input, gpe)
     if gpe then return end
     if input.KeyCode == Enum.KeyCode.T then
         running = false
-        print("⏹ Стоп фарма")
     end
 end)
