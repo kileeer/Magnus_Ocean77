@@ -1,16 +1,15 @@
+-- =====================
 -- ===== НАСТРОЙКИ =====
-local LOAD_WAIT  = 10   -- прогрузка после захода (сек)
-local EVENT_WAIT = 6    -- пауза после ТП в ивент (сек)
-local TP_SETTLE  = 0.5  -- пауза после ТП (сек)
-local KEY_DELAY  = 0.3  -- пауза после нажатия клавиши (сек)
 -- =====================
-
+local LOAD_WAIT  = 10
+local EVENT_WAIT = 6
+local PRE_FARM_TP = Vector3.new(27610.05, 16.65, -8107.77)
+local PRE_FARM_WAIT = 1
+local TP_SETTLE  = 0.25
+local DELAY      = 0.75
+local GREEN_MAX_Y = -60
+local ROUNDS = 1        -- сколько кругов до реджоина
 -- =====================
--- ===== ПЛАТФОРМА =====
--- =====================
-local UIS = game:GetService("UserInputService")
-local isMobile = UIS.TouchEnabled and not UIS.KeyboardEnabled
-print("🎯 Платформа: " .. (isMobile and "📱 Телефон" or "💻 ПК"))
 
 -- =====================
 -- ===== ТОЧКИ ИВЕНТА ПО МИРАМ =====
@@ -23,51 +22,35 @@ local WORLD_SPOTS = {
 }
 
 -- =====================
--- ===== ТОЧКИ ФАРМА (X, Z) =====
+-- ===== МОДУЛИ =====
 -- =====================
-local topLayer = {
-    {5257.03, -8081.24},
-    {5273.52, -8081.50},
-    {5287.39, -8081.79},
-    {5301.26, -8081.82},
-    {5318.57, -8082.13},
-    {5327.37, -8083.18},
-    {5328.37, -8097.26},
-    {5312.77, -8097.05},
-    {5297.21, -8096.84},
-    {5283.34, -8096.65},
-    {5267.78, -8096.44},
-    {5253.91, -8096.26},
-    {5257.02, -8111.70},
-    {5270.89, -8111.82},
-    {5286.49, -8112.03},
-    {5302.09, -8112.25},
-    {5317.70, -8112.46},
-    {5326.37, -8112.58},
-    {5321.34, -8127.49},
-    {5309.25, -8126.51},
-    {5293.65, -8126.62},
-    {5276.34, -8126.54},
-    {5262.47, -8126.48},
-    {5253.80, -8126.45},
-    {5257.11, -8141.37},
-    {5270.98, -8142.05},
-    {5286.55, -8142.82},
-    {5302.16, -8142.82},
-    {5317.73, -8142.82},
-    {5326.40, -8142.82},
-}
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Network = ReplicatedStorage:WaitForChild("Network")
+local Save = require(ReplicatedStorage.Library.Client.Save)
+local Blocks = require(ReplicatedStorage.Library.Types.Blocks)
+local BlockWorldClient = require(ReplicatedStorage.Library.Client.ToolCmds.BlockWorldClient)
+
+local ConsumablesEvent = Network:WaitForChild("Consumables_Consume")
 
 -- =====================
--- ===== СЛОИ (ХОТБАР) =====
+-- ===== БОМБЫ =====
 -- =====================
--- { Y, клавиша, цвет }
-local layers = {
-    {16.25,   Enum.KeyCode.Two,   Color3.fromRGB(0, 220, 0)},    -- 🟢
-    {-78.75,  Enum.KeyCode.Two,   Color3.fromRGB(0, 220, 0)},    -- 🟢
-    {-283.75, Enum.KeyCode.Three, Color3.fromRGB(255, 220, 0)},  -- 🟡
-    {-380.77, Enum.KeyCode.Three, Color3.fromRGB(255, 220, 0)},  -- 🟡
-}
+local BOMB_UIDS = { green = nil, yellow = nil }
+
+local function findBombUIDs()
+    local data = Save.Get()
+    if not data or not data.Inventory or not data.Inventory.Consumable then
+        return false
+    end
+    for uid, core in pairs(data.Inventory.Consumable) do
+        if core.id == "Drill Array" then
+            BOMB_UIDS.green = uid
+        elseif core.id == "Core Charge" then
+            BOMB_UIDS.yellow = uid
+        end
+    end
+    return BOMB_UIDS.green ~= nil and BOMB_UIDS.yellow ~= nil
+end
 
 -- =====================
 -- ===== ГУИ: АВАТАР B1ZE =====
@@ -195,7 +178,7 @@ Instance.new("UICorner", progressFill).CornerRadius = UDim.new(0, 8)
 local progressText = Instance.new("TextLabel")
 progressText.Size = UDim2.new(1, 0, 1, 0)
 progressText.BackgroundTransparency = 1
-progressText.Text = "0%"
+progressText.Text = "Загрузка..."
 progressText.TextColor3 = Color3.fromRGB(255, 255, 255)
 progressText.TextStrokeTransparency = 0.5
 progressText.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
@@ -204,13 +187,22 @@ progressText.TextSize = 14
 progressText.ZIndex = 7
 progressText.Parent = progressBg
 
-local function updateProgress(current, total, layerColor)
-    local percent = math.floor((current / total) * 100)
-    progressFill.Size = UDim2.new(percent / 100, 0, 1, 0)
-    if layerColor then
-        progressFill.BackgroundColor3 = layerColor
-    end
-    progressText.Text = percent .. "% (" .. current .. "/" .. total .. ")"
+local function updateProgress(current, total, color, text)
+    pcall(function()
+        local percent = 0
+        if total and total > 0 then
+            percent = math.floor((current / total) * 100)
+        end
+        progressFill.Size = UDim2.new(percent / 100, 0, 1, 0)
+        if color then
+            progressFill.BackgroundColor3 = color
+        end
+        if text then
+            progressText.Text = text
+        else
+            progressText.Text = percent .. "%"
+        end
+    end)
 end
 
 -- =====================
@@ -218,7 +210,7 @@ end
 -- =====================
 local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer
-local running = false
+local running = true
 
 local function getHRP()
     local char = LocalPlayer.Character
@@ -233,74 +225,11 @@ local function teleportTo(pos)
     hrp.CFrame = CFrame.new(pos)
 end
 
--- 🎹 Нажатие клавиши (хотбар)
-local function pressKey(key)
-    local vim = game:GetService("VirtualInputManager")
-    vim:SendKeyEvent(true, key, false, game)
-    task.wait(0.05)
-    vim:SendKeyEvent(false, key, false, game)
-end
-
--- ===== ОПРЕДЕЛЕНИЕ МИРА =====
-local function goToWorldSpot()
-    local placeId = game.PlaceId
-    local spot = WORLD_SPOTS[placeId]
-    if not spot then
-        warn("❌ Мир не найден: " .. placeId)
-        return false
-    end
-    print("🌍 Мир: " .. spot.name)
-    teleportTo(spot.pos)
-    return true
-end
-
-local function farm()
-    running = true
-
-    local totalSteps = #layers * #topLayer
-    local currentStep = 0
-    local firstTpDone = false
-
-    updateProgress(0, totalSteps)
-    print("▶ Фарм начался (" .. totalSteps .. " точек)")
-
-    for _, layer in ipairs(layers) do
-        if not running then break end
-        local y = layer[1]
-        local key = layer[2]
-        local layerColor = layer[3]
-
-        for i, t in ipairs(topLayer) do
-            if not running then break end
-            if not getHRP() then task.wait(0.5) end
-
-            local pos = Vector3.new(t[1], y, t[2])
-            teleportTo(pos)
-
-            currentStep = currentStep + 1
-            updateProgress(currentStep, totalSteps, layerColor)
-
-            if not firstTpDone and t[1] == 5257.03 and t[2] == -8081.24 then
-                firstTpDone = true
-                task.wait(1)
-            end
-
-            task.wait(TP_SETTLE)
-            pressKey(key)
-            task.wait(KEY_DELAY)
-        end
-    end
-
-    running = false
-    updateProgress(totalSteps, totalSteps)
-    print("✅ Фарм завершён")
-end
-
+-- =====================
 -- ===== РЕДЖОИН =====
+-- =====================
 local function rejoin()
-    print("🔄 Реджоин...")
     local TeleportService = game:GetService("TeleportService")
-    local Players = game:GetService("Players")
     local player = Players.LocalPlayer
 
     if #Players:GetPlayers() <= 1 then
@@ -312,37 +241,176 @@ local function rejoin()
     end
 end
 
--- ===== ПОЛНЫЙ ЦИКЛ =====
-local function fullCycle()
-    local ok = goToWorldSpot()
-    if not ok then return end
-    task.wait(1)
-    task.wait(EVENT_WAIT)
-    farm()
-    rejoin()
-end
-
--- ===== АВТОЗАПУСК =====
-task.spawn(function()
-    print("=== СКРИПТ ЗАПУЩЕН ===")
-    print("PlaceId: " .. game.PlaceId)
-    repeat task.wait(0.2) until LocalPlayer
-    repeat task.wait(0.2) until LocalPlayer.Character
-    repeat task.wait(0.2) until LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
-    if game.IsLoaded then repeat task.wait(0.2) until game:IsLoaded() end
-    print("⏳ Прогрузка " .. LOAD_WAIT .. " сек...")
-    task.wait(LOAD_WAIT)
-    print("🚀 Старт цикла")
-    fullCycle()
-end)
-
--- ===== УПРАВЛЕНИЕ =====
-UIS.InputBegan:Connect(function(input, gpe)
+-- Кнопка стоп
+game:GetService("UserInputService").InputBegan:Connect(function(input, gpe)
     if gpe then return end
     if input.KeyCode == Enum.KeyCode.T then
         running = false
-        print("⏹ Стоп фарма")
+        updateProgress(0, 100, Color3.fromRGB(255, 100, 100), "⏹ Стоп")
     end
 end)
 
-print("✅ Magnus B1ZE загружено (через хотбар + реджоин)")
+-- =====================
+-- ===== ЗАПУСК =====
+-- =====================
+repeat task.wait(0.2) until LocalPlayer
+repeat task.wait(0.2) until LocalPlayer.Character
+repeat task.wait(0.2) until LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+if game.IsLoaded then
+    repeat task.wait(0.2) until game:IsLoaded()
+end
+
+-- Прогрузка
+for i = LOAD_WAIT, 1, -1 do
+    local percent = math.floor(((LOAD_WAIT - i) / LOAD_WAIT) * 100)
+    updateProgress(percent, 100, Color3.fromRGB(255, 220, 0), "Прогрузка... " .. i .. "с")
+    task.wait(1)
+end
+
+-- ТП в ивент
+local spot = WORLD_SPOTS[game.PlaceId]
+if not spot then
+    updateProgress(0, 100, Color3.fromRGB(255, 100, 100), "❌ Мир не найден")
+    return
+end
+updateProgress(100, 100, Color3.fromRGB(150, 200, 255), "🌍 " .. spot.name)
+teleportTo(spot.pos)
+
+-- Пауза в ивенте
+task.wait(1)
+for i = EVENT_WAIT, 1, -1 do
+    local percent = math.floor(((EVENT_WAIT - i) / EVENT_WAIT) * 100)
+    updateProgress(percent, 100, Color3.fromRGB(150, 200, 255), "⏳ Ивент... " .. i .. "с")
+    task.wait(1)
+end
+
+-- ТП на остаток лока
+updateProgress(100, 100, Color3.fromRGB(150, 200, 255), "🎯 Остаток лока")
+teleportTo(PRE_FARM_TP)
+task.wait(PRE_FARM_WAIT)
+
+-- Ждём мир
+updateProgress(0, 100, Color3.fromRGB(255, 220, 0), "⏳ Ждём мир...")
+
+local world = nil
+local attempts = 0
+repeat
+    task.wait(0.5)
+    world = BlockWorldClient.GetLocal()
+    attempts = attempts + 1
+until world or attempts > 60
+
+if not world then
+    updateProgress(0, 100, Color3.fromRGB(255, 100, 100), "❌ Мир не загрузился")
+    return
+end
+
+updateProgress(100, 100, Color3.fromRGB(0, 220, 0), "✅ Мир найден")
+
+-- Ждём UID бомб
+if not findBombUIDs() then
+    updateProgress(0, 100, Color3.fromRGB(255, 100, 100), "❌ Бомбы не найдены")
+    return
+end
+
+-- Регион
+local region = world:GetRegion()
+local origin = world:GetOrigin()
+local startX = region.Min.X + 1
+local startZ = region.Min.Z + 1
+local STEP = 3
+local HEIGHT_OFFSET = 3
+
+-- =====================
+-- ===== ФУНКЦИИ ФАРМА =====
+-- =====================
+local function teleportToGrid(gridX, gridY, gridZ)
+    local cf = Blocks.BlockCFrame(origin, Vector3int16.new(gridX, gridY, gridZ))
+    local target = cf.Position + Vector3.new(0, HEIGHT_OFFSET, 0)
+    teleportTo(target)
+end
+
+local function useBomb(bombKey)
+    local uid = BOMB_UIDS[bombKey]
+    if not uid then return end
+    pcall(function()
+        ConsumablesEvent:InvokeServer(uid, 1)
+    end)
+end
+
+local function getBombKey(y)
+    return y >= GREEN_MAX_Y and "green" or "yellow"
+end
+
+local function findHighestYInColumn()
+    for y = region.Max.Y, region.Min.Y, -1 do
+        if world:GetBlock(Vector3int16.new(startX, y, startZ)) then
+            return y
+        end
+    end
+    return nil
+end
+
+-- =====================
+-- ===== ФАРМ =====
+-- =====================
+updateProgress(0, 100, Color3.fromRGB(60, 150, 255), "▶ Фарм")
+
+for round = 1, ROUNDS do
+    if not running then break end
+
+    while running do
+        local y = findHighestYInColumn()
+        if not y then
+            updateProgress(100, 100, Color3.fromRGB(150, 255, 150), "🔄 Рестарт...")
+            task.wait(2)
+        else
+            local bombKey = getBombKey(y)
+            local bombColor = bombKey == "green" and Color3.fromRGB(0, 220, 0) or Color3.fromRGB(255, 220, 0)
+
+            local totalPoints = 0
+            for x = startX, region.Max.X - 1, STEP do
+                for z = startZ, region.Max.Z - 1, STEP do
+                    if world:GetBlock(Vector3int16.new(x, y, z)) then
+                        totalPoints = totalPoints + 1
+                    end
+                end
+            end
+
+            local currentPoint = 0
+
+            for x = startX, region.Max.X - 1, STEP do
+                if not running then break end
+                for z = startZ, region.Max.Z - 1, STEP do
+                    if not running then break end
+
+                    local block = world:GetBlock(Vector3int16.new(x, y, z))
+                    if block then
+                        currentPoint = currentPoint + 1
+
+                        updateProgress(currentPoint, totalPoints, bombColor,
+                            string.format("Y=%d | %d/%d %s", y, currentPoint, totalPoints,
+                                bombKey == "green" and "🟢" or "🟡"))
+
+                        if not getHRP() then task.wait(0.5) end
+                        teleportToGrid(x, y, z)
+                        task.wait(TP_SETTLE)
+                        useBomb(bombKey)
+                        task.wait(DELAY)
+                    end
+                end
+            end
+        end
+    end
+end
+
+-- =====================
+-- ===== РЕДЖОИН В КОНЦЕ =====
+-- =====================
+if running then
+    updateProgress(100, 100, Color3.fromRGB(150, 200, 255), "🔄 Реджоин...")
+    task.wait(1)
+    rejoin()
+else
+    updateProgress(0, 100, Color3.fromRGB(255, 100, 100), "⏹ Стоп")
+end
