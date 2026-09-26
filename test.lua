@@ -226,18 +226,30 @@ local function teleportTo(pos)
 end
 
 -- =====================
--- ===== РЕДЖОИН =====
+-- ===== РЕДЖОИН (как IY) =====
 -- =====================
 local function rejoin()
     local TeleportService = game:GetService("TeleportService")
-    local player = Players.LocalPlayer
+    local PlayersService = game:GetService("Players")
+    local player = PlayersService.LocalPlayer
 
-    if #Players:GetPlayers() <= 1 then
+    -- Сохраняем ДО телепорта
+    local savedPlaceId = game.PlaceId
+    local savedJobId = game.JobId
+
+    print("🔄 Реджоин")
+    print("   PlaceId:", savedPlaceId)
+    print("   JobId:", savedJobId)
+    print("   Игроков:", #PlayersService:GetPlayers())
+
+    if #PlayersService:GetPlayers() <= 1 then
+        print("   → Кик + ТП на новый сервер")
         player:Kick("\nRejoining...")
         task.wait(0.3)
-        TeleportService:Teleport(game.PlaceId, player)
+        TeleportService:Teleport(savedPlaceId, player)
     else
-        TeleportService:TeleportToPlaceInstance(game.PlaceId, game.JobId, player)
+        print("   → ТП на тот же сервер")
+        TeleportService:TeleportToPlaceInstance(savedPlaceId, savedJobId, player)
     end
 end
 
@@ -352,18 +364,16 @@ local function findHighestYInColumn()
 end
 
 -- =====================
--- ===== ФАРМ =====
+-- ===== ФАРМ (1 круг) =====
 -- =====================
 updateProgress(0, 100, Color3.fromRGB(60, 150, 255), "▶ Фарм")
 
-for round = 1, ROUNDS do
-    if not running then break end
-
+if running then
     while running do
         local y = findHighestYInColumn()
         if not y then
-            updateProgress(100, 100, Color3.fromRGB(150, 255, 150), "🔄 Рестарт...")
-            task.wait(2)
+            -- Круг закончен
+            break
         else
             local bombKey = getBombKey(y)
             local bombColor = bombKey == "green" and Color3.fromRGB(0, 220, 0) or Color3.fromRGB(255, 220, 0)
@@ -409,7 +419,7 @@ end
 -- =====================
 if running then
     updateProgress(100, 100, Color3.fromRGB(150, 200, 255), "🔄 Реджоин...")
-    task.wait(1)
+    task.wait(2)
     rejoin()
 else
     updateProgress(0, 100, Color3.fromRGB(255, 100, 100), "⏹ Стоп")
