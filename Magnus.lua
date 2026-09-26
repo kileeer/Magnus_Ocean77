@@ -44,10 +44,8 @@ local function findBombUIDs()
     for uid, core in pairs(data.Inventory.Consumable) do
         if core.id == "Drill Array" then
             BOMB_UIDS.green = uid
-            print("🟢 Drill Array UID: " .. uid)
         elseif core.id == "Core Charge" then
             BOMB_UIDS.yellow = uid
-            print("🟡 Core Charge UID: " .. uid)
         end
     end
     return BOMB_UIDS.green ~= nil and BOMB_UIDS.yellow ~= nil
@@ -188,7 +186,6 @@ progressText.TextSize = 14
 progressText.ZIndex = 7
 progressText.Parent = progressBg
 
--- Обновление полоски
 local function updateProgress(current, total, color, text)
     pcall(function()
         local percent = 0
@@ -232,16 +229,15 @@ game:GetService("UserInputService").InputBegan:Connect(function(input, gpe)
     if gpe then return end
     if input.KeyCode == Enum.KeyCode.T then
         running = false
-        print("⏹ Стоп")
+        updateProgress(0, 100, Color3.fromRGB(255, 100, 100), "⏹ Стоп")
     end
 end)
 
 -- =====================
 -- ===== ЗАПУСК =====
 -- =====================
-print("=== СКРИПТ ЗАПУЩЕН ===")
-print("PlaceId: " .. game.PlaceId)
 
+-- Ждём персонажа
 repeat task.wait(0.2) until LocalPlayer
 repeat task.wait(0.2) until LocalPlayer.Character
 repeat task.wait(0.2) until LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
@@ -249,11 +245,7 @@ if game.IsLoaded then
     repeat task.wait(0.2) until game:IsLoaded()
 end
 
--- Прогрузка
-print("⏳ Прогрузка " .. LOAD_WAIT .. " сек...")
-updateProgress(0, 100, Color3.fromRGB(255, 220, 0), "Прогрузка " .. LOAD_WAIT .. "с...")
-
--- Обратный отсчёт прогрузки
+-- Прогрузка с обратным отсчётом
 for i = LOAD_WAIT, 1, -1 do
     local percent = math.floor(((LOAD_WAIT - i) / LOAD_WAIT) * 100)
     updateProgress(percent, 100, Color3.fromRGB(255, 220, 0), "Прогрузка... " .. i .. "с")
@@ -263,15 +255,13 @@ end
 -- ТП в ивент
 local spot = WORLD_SPOTS[game.PlaceId]
 if not spot then
-    warn("❌ PlaceId не в списке: " .. game.PlaceId)
     updateProgress(0, 100, Color3.fromRGB(255, 100, 100), "❌ Мир не найден")
     return
 end
-print("🌍 Мир: " .. spot.name)
 updateProgress(100, 100, Color3.fromRGB(150, 200, 255), "🌍 " .. spot.name)
 teleportTo(spot.pos)
 
--- Пауза в ивенте
+-- Пауза в ивенте с отсчётом
 task.wait(1)
 for i = EVENT_WAIT, 1, -1 do
     local percent = math.floor(((EVENT_WAIT - i) / EVENT_WAIT) * 100)
@@ -280,13 +270,11 @@ for i = EVENT_WAIT, 1, -1 do
 end
 
 -- ТП на остаток лока
-print("🎯 ТП на остаток: " .. tostring(PRE_FARM_TP))
 updateProgress(100, 100, Color3.fromRGB(150, 200, 255), "🎯 Остаток лока")
 teleportTo(PRE_FARM_TP)
 task.wait(PRE_FARM_WAIT)
 
 -- Ждём мир
-print("⏳ Ждём загрузки мира...")
 updateProgress(0, 100, Color3.fromRGB(255, 220, 0), "⏳ Ждём мир...")
 
 local world = nil
@@ -298,17 +286,14 @@ repeat
 until world or attempts > 60
 
 if not world then
-    warn("❌ Мир не загрузился за 30 сек")
     updateProgress(0, 100, Color3.fromRGB(255, 100, 100), "❌ Мир не загрузился")
     return
 end
 
-print("✅ Мир найден")
 updateProgress(100, 100, Color3.fromRGB(0, 220, 0), "✅ Мир найден")
 
 -- Ждём UID бомб
 if not findBombUIDs() then
-    warn("❌ Бомбы не найдены")
     updateProgress(0, 100, Color3.fromRGB(255, 100, 100), "❌ Бомбы не найдены")
     return
 end
@@ -320,11 +305,6 @@ local startX = region.Min.X + 1
 local startZ = region.Min.Z + 1
 local STEP = 3
 local HEIGHT_OFFSET = 3
-
-print(string.format("Region: X(%d..%d) Y(%d..%d) Z(%d..%d)",
-    region.Min.X, region.Max.X,
-    region.Min.Y, region.Max.Y,
-    region.Min.Z, region.Max.Z))
 
 -- =====================
 -- ===== ФУНКЦИИ ФАРМА =====
@@ -357,23 +337,20 @@ local function findHighestYInColumn()
 end
 
 -- =====================
--- ===== ФАРМ (с полоской) =====
+-- ===== ФАРМ =====
 -- =====================
-print("▶ Фарм начался")
 updateProgress(0, 100, Color3.fromRGB(60, 150, 255), "▶ Фарм")
 
 while running do
     local y = findHighestYInColumn()
     if not y then
-        print("🔄 Блоков нет, рестарт через 2 сек")
         updateProgress(100, 100, Color3.fromRGB(150, 255, 150), "🔄 Рестарт...")
         task.wait(2)
     else
         local bombKey = getBombKey(y)
         local bombColor = bombKey == "green" and Color3.fromRGB(0, 220, 0) or Color3.fromRGB(255, 220, 0)
-        print(string.format("=== Слой Y=%d | %s ===", y, bombKey == "green" and "🟢" or "🟡"))
 
-        -- Считаем общее количество точек для этого слоя
+        -- Считаем точки на слое
         local totalPoints = 0
         for x = startX, region.Max.X - 1, STEP do
             for z = startZ, region.Max.Z - 1, STEP do
@@ -394,7 +371,6 @@ while running do
                 if block then
                     currentPoint = currentPoint + 1
 
-                    -- Обновляем полоску
                     updateProgress(currentPoint, totalPoints, bombColor,
                         string.format("Y=%d | %d/%d %s", y, currentPoint, totalPoints,
                             bombKey == "green" and "🟢" or "🟡"))
@@ -410,5 +386,4 @@ while running do
     end
 end
 
-print("✅ Стоп")
 updateProgress(0, 100, Color3.fromRGB(255, 100, 100), "⏹ Стоп")
