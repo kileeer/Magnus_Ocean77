@@ -3,7 +3,7 @@
 -- =====================
 local LOAD_WAIT  = 10   -- прогрузка после захода (сек)
 local EVENT_WAIT = 6    -- пауза после ТП в ивент (сек)
-local PRE_FARM_TP = Vector3.new(5225.01, 16.20, -8114.44)   -- доп. точка ТП перед фармом
+local PRE_FARM_TP = Vector3.new(27610.05, 16.65, -8107.77)   -- твоя новая точка
 local PRE_FARM_WAIT = 1  -- пауза после этого ТП (сек)
 local TP_SETTLE  = 0.25  -- пауза после ТП на точку фарма (сек)
 local DELAY      = 0.75  -- пауза после бомбы (сек)
@@ -275,140 +275,72 @@ local function goToWorldSpot()
     return true
 end
 
--- ===== ФАРМ =====
-local function farm()
-    running = true
+-- ===== ФАРМ (один круг) =====
+local function oneFarm()
+    print("═══════════════════════════")
+    print("▶ Фарм")
+    print("═══════════════════════════")
 
-    for round = 1, 2 do
+    while true do
         if not running then break end
 
-        print("═══════════════════════════")
-        print("▶ Круг " .. round .. "/2")
-        print("═══════════════════════════")
+        local y = findHighestYInColumn()
+        if not y then
+            print("Блоков больше нет")
+            break
+        end
 
-        while true do
+        local bombKey = getBombKey(y)
+        local bombColor = bombKey == "green" and Color3.fromRGB(0, 220, 0) or Color3.fromRGB(255, 220, 0)
+
+        print(string.format("=== Слой Y=%d | %s ===", y, bombKey == "green" and "🟢" or "🟡"))
+        updateProgress(string.format("Y=%d | %s", y, bombKey == "green" and "🟢" or "🟡"), bombColor)
+
+        for x = startX, region.Max.X - 1, STEP do
             if not running then break end
-
-            local y = findHighestYInColumn()
-            if not y then
-                print("Блоков больше нет")
-                break
-            end
-
-            local bombKey = getBombKey(y)
-            local bombColor = bombKey == "green" and Color3.fromRGB(0, 220, 0) or Color3.fromRGB(255, 220, 0)
-
-            print(string.format("=== Слой Y=%d | %s ===", y, bombKey == "green" and "🟢" or "🟡"))
-            updateProgress(string.format("Y=%d | %s", y, bombKey == "green" and "🟢" or "🟡"), bombColor)
-
-            for x = startX, region.Max.X - 1, STEP do
+            for z = startZ, region.Max.Z - 1, STEP do
                 if not running then break end
-                for z = startZ, region.Max.Z - 1, STEP do
-                    if not running then break end
 
-                    local block = world:GetBlock(Vector3int16.new(x, y, z))
-                    if block then
-                        if not getHRP() then task.wait(0.5) end
+                local block = world:GetBlock(Vector3int16.new(x, y, z))
+                if block then
+                    if not getHRP() then task.wait(0.5) end
 
-                        teleportToGrid(x, y, z)
-                        task.wait(TP_SETTLE)
-                        useBomb(bombKey)
-                        task.wait(DELAY)
-                    end
+                    teleportToGrid(x, y, z)
+                    task.wait(TP_SETTLE)
+                    useBomb(bombKey)
+                    task.wait(DELAY)
                 end
             end
         end
-
-        task.wait(1)
-    end
-
-    running = false
-end
-
--- ===== СЕРВЕРХОП =====
-local function serverHop()
-    print("⬆ Серверхоп...")
-    local PlaceID = game.PlaceId
-    local AllIDs = {}
-    local foundAnything = ""
-    local actualHour = os.date("!*t").hour
-    local File = pcall(function()
-        AllIDs = game:GetService('HttpService'):JSONDecode(readfile("NotSameServers.json"))
-    end)
-    if not File then
-        table.insert(AllIDs, actualHour)
-        writefile("NotSameServers.json", game:GetService('HttpService'):JSONEncode(AllIDs))
-    end
-
-    local function TPReturner()
-        local Site
-        if foundAnything == "" then
-            Site = game.HttpService:JSONDecode(game:HttpGet('https://games.roblox.com/v1/games/' .. PlaceID .. '/servers/Public?sortOrder=Asc&limit=100'))
-        else
-            Site = game.HttpService:JSONDecode(game:HttpGet('https://games.roblox.com/v1/games/' .. PlaceID .. '/servers/Public?sortOrder=Asc&limit=100&cursor=' .. foundAnything))
-        end
-        local ID = ""
-        if Site.nextPageCursor and Site.nextPageCursor ~= "null" and Site.nextPageCursor ~= nil then
-            foundAnything = Site.nextPageCursor
-        end
-        local num = 0
-        for i, v in pairs(Site.data) do
-            local Possible = true
-            ID = tostring(v.id)
-            if tonumber(v.maxPlayers) > tonumber(v.playing) then
-                for _, Existing in pairs(AllIDs) do
-                    if num ~= 0 then
-                        if ID == tostring(Existing) then
-                            Possible = false
-                        end
-                    else
-                        if tonumber(actualHour) ~= tonumber(Existing) then
-                            pcall(function()
-                                delfile("NotSameServers.json")
-                                AllIDs = {}
-                                table.insert(AllIDs, actualHour)
-                            end)
-                        end
-                    end
-                    num = num + 1
-                end
-                if Possible == true then
-                    table.insert(AllIDs, ID)
-                    task.wait()
-                    pcall(function()
-                        writefile("NotSameServers.json", game:GetService('HttpService'):JSONEncode(AllIDs))
-                        task.wait()
-                        game:GetService("TeleportService"):TeleportToPlaceInstance(PlaceID, ID, game.Players.LocalPlayer)
-                    end)
-                    task.wait(4)
-                end
-            end
-        end
-    end
-
-    while task.wait() do
-        pcall(function()
-            TPReturner()
-            if foundAnything ~= "" then
-                TPReturner()
-            end
-        end)
     end
 end
 
 -- ===== ПОЛНЫЙ ЦИКЛ =====
 local function fullCycle()
-    local ok = goToWorldSpot()
-    if not ok then return end
+    running = true
 
+    -- 1. ТП в ивент своего мира
+    local ok = goToWorldSpot()
+    if not ok then
+        warn("❌ Мир не найден")
+        return
+    end
+
+    -- 2. Пауза
     task.wait(1)
     task.wait(EVENT_WAIT)
 
+    -- 3. ТП на остаток лока
+    print("🎯 ТП на остаток: " .. tostring(PRE_FARM_TP))
     teleportTo(PRE_FARM_TP)
     task.wait(PRE_FARM_WAIT)
 
-    farm()
-    serverHop()
+    -- 4. Фарм (бесконечно)
+    while running do
+        oneFarm()
+        print("🔄 Начинаю заново...")
+        task.wait(1)
+    end
 end
 
 -- ===== АВТОЗАПУСК =====
@@ -433,4 +365,4 @@ game:GetService("UserInputService").InputBegan:Connect(function(input, gpe)
     end
 end)
 
-print("✅ Magnus B1ZE (TeleportGrid + GUI) загружено")
+print("✅ Magnus B1ZE (без реджоина/серверхопа) загружено")
