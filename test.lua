@@ -6,6 +6,7 @@ local PRE_FARM_WAIT = 1
 local TP_SETTLE  = 0.25
 local DELAY      = 0.75
 local GREEN_MAX_Y = -60
+local REST_WAIT  = 30   -- пауза после фарма (сек)
 -- =====================
 
 -- =====================
@@ -30,7 +31,7 @@ local BlockWorldClient = require(ReplicatedStorage.Library.Client.ToolCmds.Block
 local ConsumablesEvent = Network:WaitForChild("Consumables_Consume")
 
 -- =====================
--- ===== БОМБЫ =====
+-- ===== БОМБЫ (UID) =====
 -- =====================
 local BOMB_UIDS = { green = nil, yellow = nil }
 
@@ -203,7 +204,7 @@ local function updateProgress(current, total, color, text)
 end
 
 -- =====================
--- ===== ЛОГИКА =====================
+-- ===== ЛОГИКА =====
 -- =====================
 local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer
@@ -222,105 +223,22 @@ local function teleportTo(pos)
     hrp.CFrame = CFrame.new(pos)
 end
 
--- =====================
--- ===== РЕДЖОИН (КАК В INFINITE YIELD) =====================
--- =====================
-local TeleportService = game:GetService("TeleportService")
-
-local function rejoin()
-    -- Точная копия логики rejoin из Infinite Yield
-    if #Players:GetPlayers() <= 1 then
-        Players.LocalPlayer:Kick("\nRejoining...")
-        task.wait(0.3)
-        TeleportService:Teleport(game.PlaceId, Players.LocalPlayer)
-    else
-        TeleportService:TeleportToPlaceInstance(game.PlaceId, game.JobId, Players.LocalPlayer)
-    end
-end
-
--- Кнопка стоп
+-- Кнопка стоп (T)
 game:GetService("UserInputService").InputBegan:Connect(function(input, gpe)
     if gpe then return end
     if input.KeyCode == Enum.KeyCode.T then
         running = false
         updateProgress(0, 100, Color3.fromRGB(255, 100, 100), "⏹ Стоп")
+        print("⏹ Стоп фарма")
     end
 end)
 
 -- =====================
--- ===== ЗАПУСК =====================
+-- ===== ФУНКЦИИ ФАРМА (глобальные) =====
 -- =====================
-repeat task.wait(0.2) until LocalPlayer
-repeat task.wait(0.2) until LocalPlayer.Character
-repeat task.wait(0.2) until LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
-if game.IsLoaded then
-    repeat task.wait(0.2) until game:IsLoaded()
-end
-
--- Прогрузка
-for i = LOAD_WAIT, 1, -1 do
-    local percent = math.floor(((LOAD_WAIT - i) / LOAD_WAIT) * 100)
-    updateProgress(percent, 100, Color3.fromRGB(255, 220, 0), "Прогрузка... " .. i .. "с")
-    task.wait(1)
-end
-
--- ТП в ивент
-local spot = WORLD_SPOTS[game.PlaceId]
-if not spot then
-    updateProgress(0, 100, Color3.fromRGB(255, 100, 100), "❌ Мир не найден")
-    return
-end
-updateProgress(100, 100, Color3.fromRGB(150, 200, 255), "🌍 " .. spot.name)
-teleportTo(spot.pos)
-
--- Пауза в ивенте
-task.wait(1)
-for i = EVENT_WAIT, 1, -1 do
-    local percent = math.floor(((EVENT_WAIT - i) / EVENT_WAIT) * 100)
-    updateProgress(percent, 100, Color3.fromRGB(150, 200, 255), "⏳ Ивент... " .. i .. "с")
-    task.wait(1)
-end
-
--- ТП на остаток лока
-updateProgress(100, 100, Color3.fromRGB(150, 200, 255), "🎯 Остаток лока")
-teleportTo(PRE_FARM_TP)
-task.wait(PRE_FARM_WAIT)
-
--- Ждём мир
-updateProgress(0, 100, Color3.fromRGB(255, 220, 0), "⏳ Ждём мир...")
-
+local region, origin, startX, startZ, STEP, HEIGHT_OFFSET
 local world = nil
-local attempts = 0
-repeat
-    task.wait(0.5)
-    world = BlockWorldClient.GetLocal()
-    attempts = attempts + 1
-until world or attempts > 60
 
-if not world then
-    updateProgress(0, 100, Color3.fromRGB(255, 100, 100), "❌ Мир не загрузился")
-    return
-end
-
-updateProgress(100, 100, Color3.fromRGB(0, 220, 0), "✅ Мир найден")
-
--- Ждём UID бомб
-if not findBombUIDs() then
-    updateProgress(0, 100, Color3.fromRGB(255, 100, 100), "❌ Бомбы не найдены")
-    return
-end
-
--- Регион
-local region = world:GetRegion()
-local origin = world:GetOrigin()
-local startX = region.Min.X + 1
-local startZ = region.Min.Z + 1
-local STEP = 3
-local HEIGHT_OFFSET = 3
-
--- =====================
--- ===== ФУНКЦИИ ФАРМА =====================
--- =====================
 local function teleportToGrid(gridX, gridY, gridZ)
     local cf = Blocks.BlockCFrame(origin, Vector3int16.new(gridX, gridY, gridZ))
     local target = cf.Position + Vector3.new(0, HEIGHT_OFFSET, 0)
@@ -349,62 +267,158 @@ local function findHighestYInColumn()
 end
 
 -- =====================
--- ===== ФАРМ (1 круг) =====================
+-- ===== ОДИН КРУГ ФАРМА =====
 -- =====================
-updateProgress(0, 100, Color3.fromRGB(60, 150, 255), "▶ Фарм")
+local function farmOnce()
+    -- Ждём мир
+    updateProgress(0, 100, Color3.fromRGB(255, 220, 0), "⏳ Ждём мир...")
+    world = nil
+    local attempts = 0
+    repeat
+        task.wait(0.5)
+        world = BlockWorldClient.GetLocal()
+        attempts = attempts + 1
+    until world or attempts > 60
 
+    if not world then
+        updateProgress(0, 100, Color3.fromRGB(255, 100, 100), "❌ Мир не загрузился")
+        return false
+    end
+
+    updateProgress(100, 100, Color3.fromRGB(0, 220, 0), "✅ Мир найден")
+
+    -- Ждём UID бомб
+    if not findBombUIDs() then
+        updateProgress(0, 100, Color3.fromRGB(255, 100, 100), "❌ Бомбы не найдены")
+        return false
+    end
+
+    -- Регион
+    region = world:GetRegion()
+    origin = world:GetOrigin()
+    startX = region.Min.X + 1
+    startZ = region.Min.Z + 1
+    STEP = 3
+    HEIGHT_OFFSET = 3
+
+    updateProgress(0, 100, Color3.fromRGB(60, 150, 255), "▶ Фарм")
+
+    while running do
+        local y = findHighestYInColumn()
+        if not y then
+            break
+        end
+
+        local bombKey = getBombKey(y)
+        local bombColor = bombKey == "green" and Color3.fromRGB(0, 220, 0) or Color3.fromRGB(255, 220, 0)
+
+        local totalPoints = 0
+        for x = startX, region.Max.X - 1, STEP do
+            for z = startZ, region.Max.Z - 1, STEP do
+                if world:GetBlock(Vector3int16.new(x, y, z)) then
+                    totalPoints = totalPoints + 1
+                end
+            end
+        end
+
+        local currentPoint = 0
+
+        for x = startX, region.Max.X - 1, STEP do
+            if not running then break end
+            for z = startZ, region.Max.Z - 1, STEP do
+                if not running then break end
+
+                local block = world:GetBlock(Vector3int16.new(x, y, z))
+                if block then
+                    currentPoint = currentPoint + 1
+
+                    updateProgress(currentPoint, totalPoints, bombColor,
+                        string.format("Y=%d | %d/%d %s", y, currentPoint, totalPoints,
+                            bombKey == "green" and "🟢" or "🟡"))
+
+                    if not getHRP() then task.wait(0.5) end
+                    teleportToGrid(x, y, z)
+                    task.wait(TP_SETTLE)
+                    useBomb(bombKey)
+                    task.wait(DELAY)
+                end
+            end
+        end
+    end
+
+    return true
+end
+
+-- =====================
+-- ===== ЗАПУСК =====
+-- =====================
+repeat task.wait(0.2) until LocalPlayer
+repeat task.wait(0.2) until LocalPlayer.Character
+repeat task.wait(0.2) until LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+if game.IsLoaded then
+    repeat task.wait(0.2) until game:IsLoaded()
+end
+
+-- Прогрузка
+for i = LOAD_WAIT, 1, -1 do
+    local percent = math.floor(((LOAD_WAIT - i) / LOAD_WAIT) * 100)
+    updateProgress(percent, 100, Color3.fromRGB(255, 220, 0), "Прогрузка... " .. i .. "с")
+    task.wait(1)
+end
+
+-- Основной цикл: ивент → фарм → пауза 30 сек → заново
 while running do
-    local y = findHighestYInColumn()
-    if not y then
-        -- Круг закончен
+    -- ТП в ивент
+    local spot = WORLD_SPOTS[game.PlaceId]
+    if not spot then
+        updateProgress(0, 100, Color3.fromRGB(255, 100, 100), "❌ Мир не найден")
         break
     end
+    updateProgress(100, 100, Color3.fromRGB(150, 200, 255), "🌍 " .. spot.name)
+    teleportTo(spot.pos)
 
-    local bombKey = getBombKey(y)
-    local bombColor = bombKey == "green" and Color3.fromRGB(0, 220, 0) or Color3.fromRGB(255, 220, 0)
+    -- Пауза в ивенте
+    task.wait(1)
+    for i = EVENT_WAIT, 1, -1 do
+        if not running then break end
+        local percent = math.floor(((EVENT_WAIT - i) / EVENT_WAIT) * 100)
+        updateProgress(percent, 100, Color3.fromRGB(150, 200, 255), "⏳ Ивент... " .. i .. "с")
+        task.wait(1)
+    end
+    if not running then break end
 
-    -- Считаем точки слоя
-    local totalPoints = 0
-    for x = startX, region.Max.X - 1, STEP do
-        for z = startZ, region.Max.Z - 1, STEP do
-            if world:GetBlock(Vector3int16.new(x, y, z)) then
-                totalPoints = totalPoints + 1
-            end
-        end
+    -- ТП на остаток лока
+    updateProgress(100, 100, Color3.fromRGB(150, 200, 255), "🎯 Остаток лока")
+    teleportTo(PRE_FARM_TP)
+    task.wait(PRE_FARM_WAIT)
+
+    -- Фарм
+    local ok = farmOnce()
+    if not ok and running then
+        -- Если мир не загрузился — подожди и попробуй снова
+        task.wait(5)
     end
 
-    local currentPoint = 0
+    if not running then break end
 
-    for x = startX, region.Max.X - 1, STEP do
+    -- =====================
+    -- ===== ПАУЗА 30 СЕК =====
+    -- =====================
+    for i = REST_WAIT, 1, -1 do
         if not running then break end
-        for z = startZ, region.Max.Z - 1, STEP do
-            if not running then break end
-
-            local block = world:GetBlock(Vector3int16.new(x, y, z))
-            if block then
-                currentPoint = currentPoint + 1
-
-                updateProgress(currentPoint, totalPoints, bombColor,
-                    string.format("Y=%d | %d/%d %s", y, currentPoint, totalPoints,
-                        bombKey == "green" and "🟢" or "🟡"))
-
-                if not getHRP() then task.wait(0.5) end
-                teleportToGrid(x, y, z)
-                task.wait(TP_SETTLE)
-                useBomb(bombKey)
-                task.wait(DELAY)
-            end
-        end
+        local percent = math.floor(((REST_WAIT - i) / REST_WAIT) * 100)
+        updateProgress(percent, 100, Color3.fromRGB(255, 180, 0), "💤 Пауза " .. i .. "с")
+        task.wait(1)
     end
 end
 
 -- =====================
--- ===== РЕДЖОИН (КАК В IY) =====================
+-- ===== ЗАВЕРШЕНИЕ =====
 -- =====================
 if running then
-    updateProgress(100, 100, Color3.fromRGB(150, 200, 255), "🔄 Реджоин...")
-    task.wait(2)
-    rejoin()
+    updateProgress(100, 100, Color3.fromRGB(0, 220, 0), "✅ Завершено")
+    print("✅ Скрипт завершён")
 else
     updateProgress(0, 100, Color3.fromRGB(255, 100, 100), "⏹ Стоп")
+    print("⏹ Скрипт остановлен")
 end
