@@ -3,11 +3,15 @@ local LOAD_WAIT  = 10
 local EVENT_WAIT = 6
 local PRE_FARM_TP = Vector3.new(27610.05, 16.65, -8107.77)
 local PRE_FARM_WAIT = 1
-local TP_WAIT = 0.35
+local TP_WAIT = 0.3
 local BOMB_WAIT = 0.90
+local WAIT_AFTER = 120   -- 4 минуты
 
 -- 🟢 если Y >= -350, иначе 🟡
 local GREEN_MAX_Y = -350
+
+-- 📍 BEST ЛОКА (сюда ТП после фарма)
+local BEST_LOCA = Vector3.new(27610.05, 16.65, -8107.77)   -- ← ЗАМЕНИ!
 -- =====================
 
 -- =====================
@@ -30,7 +34,7 @@ local Blocks = require(ReplicatedStorage.Library.Types.Blocks)
 local BlockWorldClient = require(ReplicatedStorage.Library.Client.ToolCmds.BlockWorldClient)
 
 -- =====================
--- ===== ГУИ: АВАТАР B1ZE =====
+-- ===== ГУИ: АВАТАР B1ZE =====================
 -- =====================
 local OWNER_USER_ID   = 11205845971
 local LINE_1          = "[B1ZE]"
@@ -338,58 +342,83 @@ local function findHighestYInColumn()
 end
 
 -- =====================
--- ===== ФАРМ =====
+-- ===== БЕСКОНЕЧНЫЙ ЦИКЛ ФАРМА =====
 -- =====================
-updateProgress(0, 100, Color3.fromRGB(60, 150, 255), "▶ Фарм")
-
 while running do
-    local gridY = findHighestYInColumn()
-    if not gridY then
-        updateProgress(100, 100, Color3.fromRGB(150, 255, 150), "✅ Блоков больше нет")
-        running = false
-        break
-    end
+    -- 1. ФАРМ
+    updateProgress(0, 100, Color3.fromRGB(60, 150, 255), "▶ Фарм")
 
-    local worldY
-    pcall(function()
-        local cf = Blocks.BlockCFrame(origin, Vector3int16.new(startX, gridY, startZ))
-        worldY = cf.Position.Y
-    end)
+    while running do
+        local gridY = findHighestYInColumn()
+        if not gridY then
+            updateProgress(100, 100, Color3.fromRGB(150, 255, 150), "✅ Блоков больше нет")
+            break
+        end
 
-    if not worldY then
-        updateProgress(0, 100, Color3.fromRGB(255, 180, 100), "⚠ Не удалось получить Y")
-        running = false
-        break
-    end
+        local worldY
+        pcall(function()
+            local cf = Blocks.BlockCFrame(origin, Vector3int16.new(startX, gridY, startZ))
+            worldY = cf.Position.Y
+        end)
 
-    local bombKey = getBombKey(worldY)
-    local bombName = bombKey == "green" and "🟢" or "🟡"
-    local bombColor = bombKey == "green" and Color3.fromRGB(150, 255, 150) or Color3.fromRGB(255, 220, 0)
+        if not worldY then
+            updateProgress(0, 100, Color3.fromRGB(255, 180, 100), "⚠ Не удалось получить Y")
+            break
+        end
 
-    updateProgress(100, 100, bombColor, string.format("%s Слой Y=%.2f", bombName, worldY))
+        local bombKey = getBombKey(worldY)
+        local bombName = bombKey == "green" and "🟢" or "🟡"
+        local bombColor = bombKey == "green" and Color3.fromRGB(150, 255, 150) or Color3.fromRGB(255, 220, 0)
 
-    for x = startX, region.Max.X - 1, STEP do
-        if not running then break end
-        for z = startZ, region.Max.Z - 1, STEP do
+        updateProgress(100, 100, bombColor, string.format("%s Слой Y=%.2f", bombName, worldY))
+
+        for x = startX, region.Max.X - 1, STEP do
             if not running then break end
+            for z = startZ, region.Max.Z - 1, STEP do
+                if not running then break end
 
-            local ok, block = pcall(function()
-                return world:GetBlock(Vector3int16.new(x, gridY, z))
-            end)
+                local ok, block = pcall(function()
+                    return world:GetBlock(Vector3int16.new(x, gridY, z))
+                end)
 
-            if ok and block then
-                if not teleportToGrid(x, gridY, z) then
-                    updateProgress(0, 100, Color3.fromRGB(255, 180, 100), "⚠ Персонаж недоступен")
-                    running = false
-                    break
+                if ok and block then
+                    if not teleportToGrid(x, gridY, z) then
+                        updateProgress(0, 100, Color3.fromRGB(255, 180, 100), "⚠ Персонаж недоступен")
+                        break
+                    end
+
+                    task.wait(TP_WAIT)
+                    useBomb(bombKey)
+                    task.wait(BOMB_WAIT)
                 end
-
-                task.wait(TP_WAIT)
-                useBomb(bombKey)
-                task.wait(BOMB_WAIT)
             end
         end
     end
+
+    if not running then break end
+
+    -- 2. ТП В BEST ЛОКУ
+    updateProgress(100, 100, Color3.fromRGB(0, 220, 0), "🏠 ТП в best локу")
+    teleportTo(BEST_LOCA)
+    task.wait(1)
+
+    -- 3. ЖДЁМ 4 МИНУТЫ
+    for i = WAIT_AFTER, 1, -1 do
+        if not running then break end
+        local minutes = math.floor(i / 60)
+        local seconds = i % 60
+        updateProgress(0, 100, Color3.fromRGB(150, 200, 255),
+            string.format("⏳ Ждём: %d:%02d", minutes, seconds))
+        task.wait(1)
+    end
+
+    if not running then break end
+
+    -- 4. Возвращаемся на остаток лока и снова фарм
+    updateProgress(100, 100, Color3.fromRGB(150, 200, 255), "🎯 Назад на фарм")
+    teleportTo(PRE_FARM_TP)
+    task.wait(PRE_FARM_WAIT)
+    -- Цикл повторится
 end
 
 updateProgress(0, 100, Color3.fromRGB(150, 255, 150), "✅ Готово")
