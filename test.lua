@@ -15,7 +15,10 @@ local PRE_FARM_WAIT = 1
 local TP_SETTLE  = 0.25
 local DELAY      = 0.75
 local GREEN_MAX_Y = -60
-local REST_WAIT  = 90
+local REST_WAIT  = 120
+
+local ORE_ID     = "Eclipse Onyx Gem"
+local ORE_NAME   = "Eclipse Onyx"
 -- =====================
 
 -- =====================
@@ -40,7 +43,7 @@ local BlockWorldClient = require(ReplicatedStorage.Library.Client.ToolCmds.Block
 local ConsumablesEvent = Network:WaitForChild("Consumables_Consume")
 
 -- =====================
--- ===== БОМБЫ (UID + счёт) =====
+-- ===== БОМБЫ (UID) =====
 -- =====================
 local BOMB_UIDS = { green = nil, yellow = nil }
 
@@ -74,14 +77,32 @@ local function countBombs(bombType)
     return total
 end
 
+local function countOre()
+    local data = Save.Get()
+    if not data or not data.Inventory or not data.Inventory.Misc then
+        return 0
+    end
+    local total = 0
+    for uid, item in pairs(data.Inventory.Misc) do
+        if item.id == ORE_ID then
+            total = total + (item._am or 1)
+        end
+    end
+    return total
+end
+
 -- =====================
--- ===== СТАРТОВЫЕ ЗНАЧЕНИЯ =====
+-- ===== ЖДЁМ ПРОГРУЗКУ =====
 -- =====================
+repeat task.wait(0.5) until Save.Get() and Save.Get().Inventory and Save.Get().Inventory.Consumable
+task.wait(2)
+
 local START_GREEN  = countBombs("green")
 local START_YELLOW = countBombs("yellow")
+local START_ORE    = countOre()
 local START_TIME   = tick()
 
-print(string.format("📊 СТАРТ: 🟢 %d | 🟡 %d", START_GREEN, START_YELLOW))
+print(string.format("📊 СТАРТ: 🟢 %d | 🟡 %d | 💎 %d", START_GREEN, START_YELLOW, START_ORE))
 
 -- =====================
 -- ===== GUI PARENT =====
@@ -105,11 +126,11 @@ local BG_TRANSPARENCY = 0.4
 local AVATAR_SIZE     = 200
 
 local ACCENT     = Color3.fromRGB(100, 150, 255)
-local TEXT_COLOR = Color3.fromRGB(230, 240, 255)
 local GREEN      = Color3.fromRGB(0, 220, 0)
 local RED        = Color3.fromRGB(255, 100, 100)
 local YELLOW     = Color3.fromRGB(255, 220, 0)
 local PANEL      = Color3.fromRGB(10, 15, 30)
+local ORE_COLOR  = Color3.fromRGB(180, 130, 255)
 
 local gui = Instance.new("ScreenGui")
 gui.Name = "MagnusGui"
@@ -118,6 +139,15 @@ gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 gui.IgnoreGuiInset = true
 gui.Parent = getGuiParent()
 
+-- =====================
+-- ===== ОСНОВНОЙ КОНТЕЙНЕР (чтобы всё скрывать разом) =====
+-- =====================
+local mainContainer = Instance.new("Frame")
+mainContainer.Size = UDim2.new(1, 0, 1, 0)
+mainContainer.BackgroundTransparency = 1
+mainContainer.ZIndex = 1
+mainContainer.Parent = gui
+
 -- Фон
 local bg = Instance.new("Frame")
 bg.Size = UDim2.new(1, 0, 1, 0)
@@ -125,7 +155,7 @@ bg.BackgroundColor3 = BG_COLOR
 bg.BackgroundTransparency = BG_TRANSPARENCY
 bg.BorderSizePixel = 0
 bg.ZIndex = 1
-bg.Parent = gui
+bg.Parent = mainContainer
 
 -- Аватар
 local container = Instance.new("Frame")
@@ -133,7 +163,7 @@ container.Size = UDim2.new(0, AVATAR_SIZE, 0, AVATAR_SIZE + 100)
 container.Position = UDim2.new(0.5, -AVATAR_SIZE/2, 0.5, -(AVATAR_SIZE + 100)/2)
 container.BackgroundTransparency = 1
 container.ZIndex = 2
-container.Parent = gui
+container.Parent = mainContainer
 
 local img = Instance.new("ImageLabel")
 img.Size = UDim2.new(0, AVATAR_SIZE, 0, AVATAR_SIZE)
@@ -179,44 +209,17 @@ sizeC2.MaxTextSize = 22
 sizeC2.MinTextSize = 12
 sizeC2.Parent = line2
 
--- Кнопка скрыть
-local btn = Instance.new("TextButton")
-btn.Size = UDim2.new(0, 110, 0, 32)
-btn.Position = UDim2.new(1, -120, 0, 10)
-btn.BackgroundColor3 = Color3.fromRGB(10, 15, 30)
-btn.BorderSizePixel = 0
-btn.Text = "👁 Скрыть"
-btn.TextColor3 = Color3.fromRGB(150, 200, 255)
-btn.Font = Enum.Font.GothamBold
-btn.TextSize = 13
-btn.ZIndex = 5
-btn.Parent = gui
-Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 8)
-
-local stroke = Instance.new("UIStroke")
-stroke.Color = ACCENT
-stroke.Thickness = 1
-stroke.Parent = btn
-
-local visible = true
-btn.MouseButton1Click:Connect(function()
-    visible = not visible
-    bg.Visible = visible
-    container.Visible = visible
-    btn.Text = visible and "👁 Скрыть" or "👁 Показать"
-end)
-
 -- =====================
--- ===== ПАНЕЛЬ СТАТИСТИКИ =====
+-- ===== ПАНЕЛЬ СТАТИСТИКИ (ЛЕВЫЙ ВЕРХНИЙ УГОЛ) =====================
 -- =====================
 local statsPanel = Instance.new("Frame")
-statsPanel.Size = UDim2.new(0, 320, 0, 250)
-statsPanel.Position = UDim2.new(0, 10, 0, 10)
+statsPanel.Size = UDim2.new(0, 360, 0, 310)
+statsPanel.Position = UDim2.new(0, 10, 0, 10)  -- ← 1 УГОЛ
 statsPanel.BackgroundColor3 = PANEL
 statsPanel.BackgroundTransparency = 0.15
 statsPanel.BorderSizePixel = 0
 statsPanel.ZIndex = 5
-statsPanel.Parent = gui
+statsPanel.Parent = mainContainer
 Instance.new("UICorner", statsPanel).CornerRadius = UDim.new(0, 10)
 
 local statsStroke = Instance.new("UIStroke")
@@ -237,7 +240,7 @@ statsTitle.TextXAlignment = Enum.TextXAlignment.Left
 statsTitle.ZIndex = 6
 statsTitle.Parent = statsPanel
 
--- Драг
+-- Драг панели
 do
     local dragging, dragInput, dragStart, startPos
     statsTitle.InputBegan:Connect(function(input)
@@ -278,15 +281,76 @@ local function makeLine(yPos, color, defaultText, fontSize)
     return line
 end
 
-local greenLabel   = makeLine(38,  GREEN,  "🟢 TNT: 0")
-local greenSpent   = makeLine(60,  Color3.fromRGB(255, 180, 180), "   Потрачено: 0")
-local greenPerHour = makeLine(82,  Color3.fromRGB(255, 140, 140), "   За час: 0")
-local yellowLabel  = makeLine(108, YELLOW, "🟡 TNT: 0")
-local yellowSpent  = makeLine(130, Color3.fromRGB(255, 180, 180), "   Потрачено: 0")
-local yellowPerHour = makeLine(152, Color3.fromRGB(255, 140, 140), "   За час: 0")
-local afkLabel     = makeLine(178, Color3.fromRGB(255, 180, 100), "💤 АФК: 00:00:00")
-local statusLabel  = makeLine(200, Color3.fromRGB(180, 200, 255), "⚙️ Статус: загрузка...")
-local zoneLabel    = makeLine(222, Color3.fromRGB(180, 255, 180), "🎯 Бест-зона: поиск...")
+local greenLabel    = makeLine(38,  GREEN,  "🟢 TNT: 0")
+local greenSpent    = makeLine(64,  Color3.fromRGB(255, 180, 180), "   Потрачено: 0")
+local greenPerHour  = makeLine(90,  Color3.fromRGB(255, 140, 140), "   За час: 0")
+local yellowLabel   = makeLine(120, YELLOW, "🟡 TNT: 0")
+local yellowSpent   = makeLine(146, Color3.fromRGB(255, 180, 180), "   Потрачено: 0")
+local yellowPerHour = makeLine(172, Color3.fromRGB(255, 140, 140), "   За час: 0")
+local oreLabel      = makeLine(202, ORE_COLOR, "💎 " .. ORE_NAME .. ": 0")
+local oreEarned     = makeLine(228, Color3.fromRGB(200, 160, 255), "   Нафармлено: 0")
+local afkLabel      = makeLine(258, Color3.fromRGB(255, 180, 100), "💤 АФК: 00:00:00")
+local statusLabel   = makeLine(284, Color3.fromRGB(180, 200, 255), "⚙️ Статус: загрузка...")
+
+-- =====================
+-- ===== КНОПКА ЗАКРЫТЬ МЕНЮ (ПРАВЫЙ НИЖНИЙ УГОЛ) =====================
+-- =====================
+local closeBtn = Instance.new("TextButton")
+closeBtn.Size = UDim2.new(0, 150, 0, 40)
+closeBtn.Position = UDim2.new(1, -160, 1, -56)  -- ← 2 УГОЛ
+closeBtn.BackgroundColor3 = Color3.fromRGB(180, 40, 40)
+closeBtn.BorderSizePixel = 0
+closeBtn.Text = "❌ ЗАКРЫТЬ МЕНЮ"
+closeBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+closeBtn.Font = Enum.Font.GothamBold
+closeBtn.TextSize = 14
+closeBtn.ZIndex = 10
+closeBtn.Parent = gui
+Instance.new("UICorner", closeBtn).CornerRadius = UDim.new(0, 8)
+
+local closeStroke = Instance.new("UIStroke")
+closeStroke.Color = Color3.fromRGB(255, 100, 100)
+closeStroke.Thickness = 1
+closeStroke.Transparency = 0.4
+closeStroke.Parent = closeBtn
+
+-- =====================
+-- ===== КНОПКА ОТКРЫТЬ МЕНЮ (появляется после закрытия) =====================
+-- =====================
+local openBtn = Instance.new("TextButton")
+openBtn.Size = UDim2.new(0, 150, 0, 40)
+openBtn.Position = UDim2.new(1, -160, 1, -56)  -- тот же угол
+openBtn.BackgroundColor3 = Color3.fromRGB(0, 140, 60)
+openBtn.BorderSizePixel = 0
+openBtn.Text = "✅ ОТКРЫТЬ МЕНЮ"
+openBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+openBtn.Font = Enum.Font.GothamBold
+openBtn.TextSize = 14
+openBtn.ZIndex = 10
+openBtn.Visible = false
+openBtn.Parent = gui
+Instance.new("UICorner", openBtn).CornerRadius = UDim.new(0, 8)
+
+local openStroke = Instance.new("UIStroke")
+openStroke.Color = Color3.fromRGB(100, 255, 100)
+openStroke.Thickness = 1
+openStroke.Transparency = 0.4
+openStroke.Parent = openBtn
+
+-- =====================
+-- ===== ЛОГИКА КНОПОК =====
+-- =====================
+closeBtn.MouseButton1Click:Connect(function()
+    mainContainer.Visible = false   -- скрываем весь GUI
+    closeBtn.Visible = false        -- скрываем кнопку "Закрыть"
+    openBtn.Visible = true          -- показываем кнопку "Открыть"
+end)
+
+openBtn.MouseButton1Click:Connect(function()
+    mainContainer.Visible = true
+    openBtn.Visible = false
+    closeBtn.Visible = true
+end)
 
 -- =====================
 -- ===== ТАЙМЕР АФК =====
@@ -302,33 +366,43 @@ end
 -- ===== ОБНОВЛЕНИЕ СТАТИСТИКИ =====
 -- =====================
 local function updateStats()
-    pcall(function()
-        local curGreen  = countBombs("green")
-        local curYellow = countBombs("yellow")
-        local spentGreen  = math.max(0, START_GREEN  - curGreen)
-        local spentYellow = math.max(0, START_YELLOW - curYellow)
+    local curGreen, curYellow, curOre = 0, 0, 0
 
-        -- Сколько прошло времени
-        local elapsed = tick() - START_TIME
-        local hours = elapsed / 3600
-        if hours < 0.001 then hours = 0.001 end  -- чтобы не делить на 0
+    local okG, resG = pcall(countBombs, "green")
+    if okG then curGreen = resG end
 
-        -- Трата за час (экстраполяция)
-        local greenPerHour  = math.floor(spentGreen / hours)
-        local yellowPerHour = math.floor(spentYellow / hours)
+    local okY, resY = pcall(countBombs, "yellow")
+    if okY then curYellow = resY end
 
-        -- Основные счётчики
-        greenLabel.Text   = "🟢 TNT: " .. curGreen
-        greenSpent.Text   = "   Потрачено: " .. spentGreen
-        greenPerHour.Text = "   За час: " .. greenPerHour
+    local okO, resO = pcall(countOre)
+    if okO then curOre = resO end
 
-        yellowLabel.Text   = "🟡 TNT: " .. curYellow
-        yellowSpent.Text   = "   Потрачено: " .. spentYellow
-        yellowPerHour.Text = "   За час: " .. yellowPerHour
+    if START_GREEN == 0 and curGreen > 0 then START_GREEN = curGreen end
+    if START_YELLOW == 0 and curYellow > 0 then START_YELLOW = curYellow end
 
-        -- АФК таймер
-        afkLabel.Text = "💤 АФК: " .. formatTime(elapsed)
-    end)
+    local spentGreen  = math.max(0, START_GREEN  - curGreen)
+    local spentYellow = math.max(0, START_YELLOW - curYellow)
+    local earnedOre   = math.max(0, curOre - START_ORE)
+
+    local elapsed = tick() - START_TIME
+    local hours = elapsed / 3600
+    if hours < 0.001 then hours = 0.001 end
+
+    local greenPerHour  = math.floor(spentGreen / hours)
+    local yellowPerHour = math.floor(spentYellow / hours)
+
+    pcall(function() greenLabel.Text = "🟢 TNT: " .. curGreen end)
+    pcall(function() greenSpent.Text = "   Потрачено: " .. spentGreen end)
+    pcall(function() greenPerHour.Text = "   За час: " .. greenPerHour end)
+
+    pcall(function() yellowLabel.Text = "🟡 TNT: " .. curYellow end)
+    pcall(function() yellowSpent.Text = "   Потрачено: " .. spentYellow end)
+    pcall(function() yellowPerHour.Text = "   За час: " .. yellowPerHour end)
+
+    pcall(function() oreLabel.Text = "💎 " .. ORE_NAME .. ": " .. curOre end)
+    pcall(function() oreEarned.Text = "   Нафармлено: " .. earnedOre end)
+
+    pcall(function() afkLabel.Text = "💤 АФК: " .. formatTime(elapsed) end)
 end
 
 task.spawn(function()
@@ -339,58 +413,7 @@ task.spawn(function()
 end)
 
 -- =====================
--- ===== ПРОГРЕСС-БАР =====================
--- =====================
-local progressBg = Instance.new("Frame")
-progressBg.Size = UDim2.new(0, 400, 0, 30)
-progressBg.Position = UDim2.new(0.5, -200, 1, -50)
-progressBg.BackgroundColor3 = PANEL
-progressBg.BackgroundTransparency = 0.2
-progressBg.BorderSizePixel = 0
-progressBg.ZIndex = 5
-progressBg.Parent = gui
-Instance.new("UICorner", progressBg).CornerRadius = UDim.new(0, 8)
-
-local progressFill = Instance.new("Frame")
-progressFill.Size = UDim2.new(0, 0, 1, 0)
-progressFill.BackgroundColor3 = Color3.fromRGB(60, 150, 255)
-progressFill.BorderSizePixel = 0
-progressFill.ZIndex = 6
-progressFill.Parent = progressBg
-Instance.new("UICorner", progressFill).CornerRadius = UDim.new(0, 8)
-
-local progressText = Instance.new("TextLabel")
-progressText.Size = UDim2.new(1, 0, 1, 0)
-progressText.BackgroundTransparency = 1
-progressText.Text = "Загрузка..."
-progressText.TextColor3 = Color3.fromRGB(255, 255, 255)
-progressText.TextStrokeTransparency = 0.5
-progressText.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
-progressText.Font = Enum.Font.GothamBold
-progressText.TextSize = 14
-progressText.ZIndex = 7
-progressText.Parent = progressBg
-
-local function updateProgress(current, total, color, text)
-    pcall(function()
-        local percent = 0
-        if total and total > 0 then
-            percent = math.floor((current / total) * 100)
-        end
-        progressFill.Size = UDim2.new(percent / 100, 0, 1, 0)
-        if color then
-            progressFill.BackgroundColor3 = color
-        end
-        if text then
-            progressText.Text = text
-        else
-            progressText.Text = percent .. "%"
-        end
-    end)
-end
-
--- =====================
--- ===== ЛОГИКА =====
+-- ===== ЛОГИКА ФАРМА =====
 -- =====================
 local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer
@@ -414,16 +437,12 @@ game:GetService("UserInputService").InputBegan:Connect(function(input, gpe)
     if gpe then return end
     if input.KeyCode == Enum.KeyCode.T then
         running = false
-        updateProgress(0, 100, Color3.fromRGB(255, 100, 100), "⏹ Стоп")
         statusLabel.Text = "⚙️ Статус: остановлено"
         statusLabel.TextColor3 = RED
         print("⏹ Стоп")
     end
 end)
 
--- =====================
--- ===== ФУНКЦИИ ФАРМА =====
--- =====================
 local region, origin, startX, startZ, STEP, HEIGHT_OFFSET
 local world = nil
 
@@ -454,9 +473,6 @@ local function findHighestYInColumn()
     return nil
 end
 
--- =====================
--- ===== ПОИСК БЕСТ-ЗОНЫ =====
--- =====================
 local function findBestZone()
     statusLabel.Text = "🎯 Бест-зона: сканирую..."
     statusLabel.TextColor3 = YELLOW
@@ -482,19 +498,17 @@ local function findBestZone()
         task.wait()
     end
 
-    zoneLabel.Text = string.format("🎯 Бест-зона: X=%d Z=%d (%d)", bestX, bestZ, bestCount)
-    zoneLabel.TextColor3 = GREEN
+    statusLabel.Text = string.format("🎯 Бест-зона: X=%d Z=%d (%d)", bestX, bestZ, bestCount)
+    statusLabel.TextColor3 = GREEN
     print(string.format("🎯 Бест-зона: X=%d Z=%d | Блоков: %d", bestX, bestZ, bestCount))
 
     local cf = Blocks.BlockCFrame(origin, Vector3int16.new(bestX, region.Max.Y, bestZ))
     return cf.Position + Vector3.new(0, HEIGHT_OFFSET, 0)
 end
 
--- =====================
--- ===== ОДИН КРУГ ФАРМА =====
--- =====================
 local function farmOnce()
-    updateProgress(0, 100, Color3.fromRGB(255, 220, 0), "⏳ Ждём мир...")
+    statusLabel.Text = "⏳ Ждём мир..."
+    statusLabel.TextColor3 = YELLOW
     world = nil
     local attempts = 0
     repeat
@@ -504,14 +518,14 @@ local function farmOnce()
     until world or attempts > 60
 
     if not world then
-        updateProgress(0, 100, Color3.fromRGB(255, 100, 100), "❌ Мир не загрузился")
+        statusLabel.Text = "❌ Мир не загрузился"
+        statusLabel.TextColor3 = RED
         return false
     end
 
-    updateProgress(100, 100, Color3.fromRGB(0, 220, 0), "✅ Мир найден")
-
     if not findBombUIDs() then
-        updateProgress(0, 100, Color3.fromRGB(255, 100, 100), "❌ Бомбы не найдены")
+        statusLabel.Text = "❌ Бомбы не найдены"
+        statusLabel.TextColor3 = RED
         return false
     end
 
@@ -522,7 +536,6 @@ local function farmOnce()
     STEP = 3
     HEIGHT_OFFSET = 3
 
-    updateProgress(0, 100, Color3.fromRGB(60, 150, 255), "▶ Фарм")
     statusLabel.Text = "⚙️ Статус: фарм..."
     statusLabel.TextColor3 = GREEN
 
@@ -531,18 +544,6 @@ local function farmOnce()
         if not y then break end
 
         local bombKey = getBombKey(y)
-        local bombColor = bombKey == "green" and Color3.fromRGB(0, 220, 0) or Color3.fromRGB(255, 220, 0)
-
-        local totalPoints = 0
-        for x = startX, region.Max.X - 1, STEP do
-            for z = startZ, region.Max.Z - 1, STEP do
-                if world:GetBlock(Vector3int16.new(x, y, z)) then
-                    totalPoints = totalPoints + 1
-                end
-            end
-        end
-
-        local currentPoint = 0
 
         for x = startX, region.Max.X - 1, STEP do
             if not running then break end
@@ -551,11 +552,6 @@ local function farmOnce()
 
                 local block = world:GetBlock(Vector3int16.new(x, y, z))
                 if block then
-                    currentPoint = currentPoint + 1
-                    updateProgress(currentPoint, totalPoints, bombColor,
-                        string.format("Y=%d | %d/%d %s", y, currentPoint, totalPoints,
-                            bombKey == "green" and "🟢" or "🟡"))
-
                     if not getHRP() then task.wait(0.5) end
                     teleportToGrid(x, y, z)
                     task.wait(TP_SETTLE)
@@ -579,34 +575,32 @@ if game:IsLoaded() == false then
 end
 
 for i = LOAD_WAIT, 1, -1 do
-    local percent = math.floor(((LOAD_WAIT - i) / LOAD_WAIT) * 100)
-    updateProgress(percent, 100, Color3.fromRGB(255, 220, 0), "Прогрузка... " .. i .. "с")
+    statusLabel.Text = "⏳ Прогрузка... " .. i .. "с"
+    statusLabel.TextColor3 = YELLOW
     task.wait(1)
 end
 
--- =====================
--- ===== ОСНОВНОЙ ЦИКЛ =====
--- =====================
 while running do
     local spot = WORLD_SPOTS[game.PlaceId]
     if not spot then
-        updateProgress(0, 100, Color3.fromRGB(255, 100, 100), "❌ Мир не найден")
+        statusLabel.Text = "❌ Мир не найден"
+        statusLabel.TextColor3 = RED
         break
     end
 
-    updateProgress(100, 100, Color3.fromRGB(150, 200, 255), "🌍 " .. spot.name)
+    statusLabel.Text = "🌍 " .. spot.name
+    statusLabel.TextColor3 = ACCENT
     teleportTo(spot.pos)
 
     task.wait(1)
     for i = EVENT_WAIT, 1, -1 do
         if not running then break end
-        local percent = math.floor(((EVENT_WAIT - i) / EVENT_WAIT) * 100)
-        updateProgress(percent, 100, Color3.fromRGB(150, 200, 255), "⏳ Ивент... " .. i .. "с")
+        statusLabel.Text = "⏳ Ивент... " .. i .. "с"
         task.wait(1)
     end
     if not running then break end
 
-    updateProgress(100, 100, Color3.fromRGB(150, 200, 255), "🎯 Остаток лока")
+    statusLabel.Text = "🎯 Остаток лока"
     teleportTo(PRE_FARM_TP)
     task.wait(PRE_FARM_WAIT)
 
@@ -618,25 +612,21 @@ while running do
     statusLabel.TextColor3 = YELLOW
     for i = REST_WAIT, 1, -1 do
         if not running then break end
-        local percent = math.floor(((REST_WAIT - i) / REST_WAIT) * 100)
         local mins = math.floor(i / 60)
         local secs = i % 60
-        updateProgress(percent, 100, Color3.fromRGB(255, 180, 0),
-            string.format("💤 Пауза %d:%02d", mins, secs))
+        statusLabel.Text = string.format("💤 Пауза %d:%02d", mins, secs)
         task.wait(1)
     end
     if not running then break end
 
-    updateProgress(100, 100, Color3.fromRGB(180, 255, 180), "🎯 Ищу бест-зону...")
+    statusLabel.Text = "🎯 Ищу бест-зону..."
     local bestZonePos = findBestZone()
     teleportTo(bestZonePos)
     task.wait(1)
 end
 
 if running then
-    updateProgress(100, 100, Color3.fromRGB(0, 220, 0), "✅ Завершено")
     print("✅ Скрипт завершён")
 else
-    updateProgress(0, 100, Color3.fromRGB(255, 100, 100), "⏹ Стоп")
     print("⏹ Скрипт остановлен")
 end
