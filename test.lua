@@ -15,7 +15,7 @@ local PRE_FARM_WAIT = 1
 local TP_SETTLE  = 0.5
 local DELAY      = 0.75
 local GREEN_MAX_Y = -60
-local REST_WAIT  = 120
+local REST_WAIT  = 90
 
 local ORE_ID     = "Eclipse Onyx Gem"
 local ORE_NAME   = "Eclipse Onyx"
