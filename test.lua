@@ -12,7 +12,7 @@ local LOAD_WAIT  = 10
 local EVENT_WAIT = 6
 local PRE_FARM_TP = Vector3.new(27610.05, 16.65, -8107.77)
 local PRE_FARM_WAIT = 1
-local TP_SETTLE  = 0.25
+local TP_SETTLE  = 0.5
 local DELAY      = 0.75
 local GREEN_MAX_Y = -60
 local REST_WAIT  = 120
@@ -140,7 +140,7 @@ gui.IgnoreGuiInset = true
 gui.Parent = getGuiParent()
 
 -- =====================
--- ===== ОСНОВНОЙ КОНТЕЙНЕР (чтобы всё скрывать разом) =====
+-- ===== ОСНОВНОЙ КОНТЕЙНЕР =====
 -- =====================
 local mainContainer = Instance.new("Frame")
 mainContainer.Size = UDim2.new(1, 0, 1, 0)
@@ -214,7 +214,7 @@ sizeC2.Parent = line2
 -- =====================
 local statsPanel = Instance.new("Frame")
 statsPanel.Size = UDim2.new(0, 360, 0, 310)
-statsPanel.Position = UDim2.new(0, 10, 0, 10)  -- ← 1 УГОЛ
+statsPanel.Position = UDim2.new(0, 10, 0, 10)
 statsPanel.BackgroundColor3 = PANEL
 statsPanel.BackgroundTransparency = 0.15
 statsPanel.BorderSizePixel = 0
@@ -296,54 +296,56 @@ local statusLabel   = makeLine(284, Color3.fromRGB(180, 200, 255), "⚙️ Ст�
 -- ===== КНОПКА ЗАКРЫТЬ МЕНЮ (ПРАВЫЙ НИЖНИЙ УГОЛ) =====================
 -- =====================
 local closeBtn = Instance.new("TextButton")
-closeBtn.Size = UDim2.new(0, 150, 0, 40)
-closeBtn.Position = UDim2.new(1, -160, 1, -56)  -- ← 2 УГОЛ
-closeBtn.BackgroundColor3 = Color3.fromRGB(180, 40, 40)
+closeBtn.Size = UDim2.new(0, 160, 0, 40)
+closeBtn.Position = UDim2.new(1, -170, 1, -56)
+closeBtn.BackgroundColor3 = PANEL
+closeBtn.BackgroundTransparency = 0.15
 closeBtn.BorderSizePixel = 0
-closeBtn.Text = "❌ ЗАКРЫТЬ МЕНЮ"
-closeBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+closeBtn.Text = "❌  ЗАКРЫТЬ МЕНЮ"
+closeBtn.TextColor3 = RED
 closeBtn.Font = Enum.Font.GothamBold
 closeBtn.TextSize = 14
 closeBtn.ZIndex = 10
 closeBtn.Parent = gui
-Instance.new("UICorner", closeBtn).CornerRadius = UDim.new(0, 8)
+Instance.new("UICorner", closeBtn).CornerRadius = UDim.new(0, 10)
 
 local closeStroke = Instance.new("UIStroke")
-closeStroke.Color = Color3.fromRGB(255, 100, 100)
+closeStroke.Color = RED
 closeStroke.Thickness = 1
-closeStroke.Transparency = 0.4
+closeStroke.Transparency = 0.3
 closeStroke.Parent = closeBtn
 
 -- =====================
--- ===== КНОПКА ОТКРЫТЬ МЕНЮ (появляется после закрытия) =====================
+-- ===== КНОПКА ОТКРЫТЬ МЕНЮ =====================
 -- =====================
 local openBtn = Instance.new("TextButton")
-openBtn.Size = UDim2.new(0, 150, 0, 40)
-openBtn.Position = UDim2.new(1, -160, 1, -56)  -- тот же угол
-openBtn.BackgroundColor3 = Color3.fromRGB(0, 140, 60)
+openBtn.Size = UDim2.new(0, 160, 0, 40)
+openBtn.Position = UDim2.new(1, -170, 1, -56)
+openBtn.BackgroundColor3 = PANEL
+openBtn.BackgroundTransparency = 0.15
 openBtn.BorderSizePixel = 0
-openBtn.Text = "✅ ОТКРЫТЬ МЕНЮ"
-openBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+openBtn.Text = "✅  ОТКРЫТЬ МЕНЮ"
+openBtn.TextColor3 = GREEN
 openBtn.Font = Enum.Font.GothamBold
 openBtn.TextSize = 14
 openBtn.ZIndex = 10
 openBtn.Visible = false
 openBtn.Parent = gui
-Instance.new("UICorner", openBtn).CornerRadius = UDim.new(0, 8)
+Instance.new("UICorner", openBtn).CornerRadius = UDim.new(0, 10)
 
 local openStroke = Instance.new("UIStroke")
-openStroke.Color = Color3.fromRGB(100, 255, 100)
+openStroke.Color = GREEN
 openStroke.Thickness = 1
-openStroke.Transparency = 0.4
+openStroke.Transparency = 0.3
 openStroke.Parent = openBtn
 
 -- =====================
 -- ===== ЛОГИКА КНОПОК =====
 -- =====================
 closeBtn.MouseButton1Click:Connect(function()
-    mainContainer.Visible = false   -- скрываем весь GUI
-    closeBtn.Visible = false        -- скрываем кнопку "Закрыть"
-    openBtn.Visible = true          -- показываем кнопку "Открыть"
+    mainContainer.Visible = false
+    closeBtn.Visible = false
+    openBtn.Visible = true
 end)
 
 openBtn.MouseButton1Click:Connect(function()
