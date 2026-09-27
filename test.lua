@@ -203,7 +203,7 @@ local function updateProgress(current, total, color, text)
 end
 
 -- =====================
--- ===== ЛОГИКА =====
+-- ===== ЛОГИКА =====================
 -- =====================
 local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer
@@ -223,10 +223,19 @@ local function teleportTo(pos)
 end
 
 -- =====================
--- ===== РЕДЖОИН (через Kick) =====================
+-- ===== РЕДЖОИН (КАК В INFINITE YIELD) =====================
 -- =====================
+local TeleportService = game:GetService("TeleportService")
+
 local function rejoin()
-    game.Players.LocalPlayer:Kick("Rejoining...")
+    -- Точная копия логики rejoin из Infinite Yield
+    if #Players:GetPlayers() <= 1 then
+        Players.LocalPlayer:Kick("\nRejoining...")
+        task.wait(0.3)
+        TeleportService:Teleport(game.PlaceId, Players.LocalPlayer)
+    else
+        TeleportService:TeleportToPlaceInstance(game.PlaceId, game.JobId, Players.LocalPlayer)
+    end
 end
 
 -- Кнопка стоп
@@ -239,7 +248,7 @@ game:GetService("UserInputService").InputBegan:Connect(function(input, gpe)
 end)
 
 -- =====================
--- ===== ЗАПУСК =====
+-- ===== ЗАПУСК =====================
 -- =====================
 repeat task.wait(0.2) until LocalPlayer
 repeat task.wait(0.2) until LocalPlayer.Character
@@ -310,7 +319,7 @@ local STEP = 3
 local HEIGHT_OFFSET = 3
 
 -- =====================
--- ===== ФУНКЦИИ ФАРМА =====
+-- ===== ФУНКЦИИ ФАРМА =====================
 -- =====================
 local function teleportToGrid(gridX, gridY, gridZ)
     local cf = Blocks.BlockCFrame(origin, Vector3int16.new(gridX, gridY, gridZ))
@@ -390,7 +399,7 @@ while running do
 end
 
 -- =====================
--- ===== РЕДЖОИН =====================
+-- ===== РЕДЖОИН (КАК В IY) =====================
 -- =====================
 if running then
     updateProgress(100, 100, Color3.fromRGB(150, 200, 255), "🔄 Реджоин...")
