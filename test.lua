@@ -6,7 +6,7 @@ local PRE_FARM_WAIT = 1
 local TP_SETTLE  = 0.25
 local DELAY      = 0.75
 local GREEN_MAX_Y = -60
-local REST_WAIT  = 30   -- пауза после фарма (сек)
+local REST_WAIT  = 120   -- пауза между кругами 2 минуты (120 сек)
 -- =====================
 
 -- =====================
@@ -31,7 +31,7 @@ local BlockWorldClient = require(ReplicatedStorage.Library.Client.ToolCmds.Block
 local ConsumablesEvent = Network:WaitForChild("Consumables_Consume")
 
 -- =====================
--- ===== БОМБЫ (UID) =====
+-- ===== БОМБЫ (UID + счётчики) =====
 -- =====================
 local BOMB_UIDS = { green = nil, yellow = nil }
 
@@ -50,8 +50,23 @@ local function findBombUIDs()
     return BOMB_UIDS.green ~= nil and BOMB_UIDS.yellow ~= nil
 end
 
+local function countBombs(bombType)
+    local data = Save.Get()
+    if not data or not data.Inventory or not data.Inventory.Consumable then
+        return 0
+    end
+    local targetId = (bombType == "green") and "Drill Array" or "Core Charge"
+    local total = 0
+    for uid, core in pairs(data.Inventory.Consumable) do
+        if core.id == targetId then
+            total = total + (core.amount or core.count or core.quantity or 1)
+        end
+    end
+    return total
+end
+
 -- =====================
--- ===== ГУИ: АВАТАР B1ZE =====
+-- ===== ГУИ =====
 -- =====================
 local OWNER_USER_ID   = 11205845971
 local LINE_1          = "[B1ZE]"
@@ -153,6 +168,77 @@ btn.MouseButton1Click:Connect(function()
 end)
 
 -- =====================
+-- ===== ПАНЕЛЬ СТАТИСТИКИ =====
+-- =====================
+local statsPanel = Instance.new("Frame")
+statsPanel.Size = UDim2.new(0, 260, 0, 170)
+statsPanel.Position = UDim2.new(0, 10, 0, 10)
+statsPanel.BackgroundColor3 = Color3.fromRGB(10, 15, 30)
+statsPanel.BackgroundTransparency = 0.25
+statsPanel.BorderSizePixel = 0
+statsPanel.ZIndex = 5
+statsPanel.Parent = gui
+Instance.new("UICorner", statsPanel).CornerRadius = UDim.new(0, 10)
+
+local statsStroke = Instance.new("UIStroke")
+statsStroke.Color = Color3.fromRGB(100, 150, 255)
+statsStroke.Thickness = 1
+statsStroke.Transparency = 0.3
+statsStroke.Parent = statsPanel
+
+local statsTitle = Instance.new("TextLabel")
+statsTitle.Size = UDim2.new(1, -20, 0, 24)
+statsTitle.Position = UDim2.new(0, 10, 0, 8)
+statsTitle.BackgroundTransparency = 1
+statsTitle.Text = "📊 СТАТИСТИКА"
+statsTitle.TextColor3 = Color3.fromRGB(150, 200, 255)
+statsTitle.Font = Enum.Font.GothamBold
+statsTitle.TextSize = 15
+statsTitle.TextXAlignment = Enum.TextXAlignment.Left
+statsTitle.ZIndex = 6
+statsTitle.Parent = statsPanel
+
+local function makeStatLine(yPos, color, icon, defaultText)
+    local line = Instance.new("TextLabel")
+    line.Size = UDim2.new(1, -20, 0, 26)
+    line.Position = UDim2.new(0, 10, 0, yPos)
+    line.BackgroundTransparency = 1
+    line.Text = icon .. " " .. defaultText
+    line.TextColor3 = color
+    line.Font = Enum.Font.GothamMedium
+    line.TextSize = 15
+    line.TextXAlignment = Enum.TextXAlignment.Left
+    line.ZIndex = 6
+    line.Parent = statsPanel
+    return line
+end
+
+local greenBombLabel  = makeStatLine(38,  Color3.fromRGB(0, 230, 0),    "🟢", "Зелёные бомбы: 0")
+local yellowBombLabel = makeStatLine(66,  Color3.fromRGB(255, 220, 0),  "🟡", "Жёлтые бомбы: 0")
+local afkLabel        = makeStatLine(94,  Color3.fromRGB(255, 180, 100),"💤", "АФК: 00:00:00")
+local oreLabel        = makeStatLine(122, Color3.fromRGB(180, 200, 255),"💎", "Руда: 0")
+
+-- =====================
+-- ===== ТАЙМЕР АФК (общий) =====
+-- =====================
+local afkStartTime = tick()
+
+local function formatTime(seconds)
+    local h = math.floor(seconds / 3600)
+    local m = math.floor((seconds % 3600) / 60)
+    local s = math.floor(seconds % 60)
+    return string.format("%02d:%02d:%02d", h, m, s)
+end
+
+task.spawn(function()
+    while true do
+        local elapsed = tick() - afkStartTime
+        afkLabel.Text = "💤 АФК: " .. formatTime(elapsed)
+        task.wait(1)
+    end
+end)
+
+-- =====================
 -- ===== ПРОГРЕСС-БАР =====================
 -- =====================
 local progressBg = Instance.new("Frame")
@@ -204,6 +290,23 @@ local function updateProgress(current, total, color, text)
 end
 
 -- =====================
+-- ===== ОБНОВЛЕНИЕ БОМБ =====
+-- =====================
+local function updateBombs()
+    pcall(function()
+        greenBombLabel.Text  = "🟢 Зелёные бомбы: " .. countBombs("green")
+        yellowBombLabel.Text = "🟡 Жёлтые бомбы: " .. countBombs("yellow")
+    end)
+end
+
+task.spawn(function()
+    while true do
+        updateBombs()
+        task.wait(1)
+    end
+end)
+
+-- =====================
 -- ===== ЛОГИКА =====
 -- =====================
 local Players = game:GetService("Players")
@@ -234,7 +337,7 @@ game:GetService("UserInputService").InputBegan:Connect(function(input, gpe)
 end)
 
 -- =====================
--- ===== ФУНКЦИИ ФАРМА (глобальные) =====
+-- ===== ФУНКЦИИ ФАРМА =====
 -- =====================
 local region, origin, startX, startZ, STEP, HEIGHT_OFFSET
 local world = nil
@@ -270,7 +373,6 @@ end
 -- ===== ОДИН КРУГ ФАРМА =====
 -- =====================
 local function farmOnce()
-    -- Ждём мир
     updateProgress(0, 100, Color3.fromRGB(255, 220, 0), "⏳ Ждём мир...")
     world = nil
     local attempts = 0
@@ -287,13 +389,11 @@ local function farmOnce()
 
     updateProgress(100, 100, Color3.fromRGB(0, 220, 0), "✅ Мир найден")
 
-    -- Ждём UID бомб
     if not findBombUIDs() then
         updateProgress(0, 100, Color3.fromRGB(255, 100, 100), "❌ Бомбы не найдены")
         return false
     end
 
-    -- Регион
     region = world:GetRegion()
     origin = world:GetOrigin()
     startX = region.Min.X + 1
@@ -305,9 +405,7 @@ local function farmOnce()
 
     while running do
         local y = findHighestYInColumn()
-        if not y then
-            break
-        end
+        if not y then break end
 
         local bombKey = getBombKey(y)
         local bombColor = bombKey == "green" and Color3.fromRGB(0, 220, 0) or Color3.fromRGB(255, 220, 0)
@@ -366,18 +464,20 @@ for i = LOAD_WAIT, 1, -1 do
     task.wait(1)
 end
 
--- Основной цикл: ивент → фарм → пауза 30 сек → заново
+-- =====================
+-- ===== ОСНОВНОЙ ЦИКЛ =====
+-- =====================
 while running do
-    -- ТП в ивент
     local spot = WORLD_SPOTS[game.PlaceId]
     if not spot then
         updateProgress(0, 100, Color3.fromRGB(255, 100, 100), "❌ Мир не найден")
         break
     end
+
+    -- ТП в ивент
     updateProgress(100, 100, Color3.fromRGB(150, 200, 255), "🌍 " .. spot.name)
     teleportTo(spot.pos)
 
-    -- Пауза в ивенте
     task.wait(1)
     for i = EVENT_WAIT, 1, -1 do
         if not running then break end
@@ -395,25 +495,27 @@ while running do
     -- Фарм
     local ok = farmOnce()
     if not ok and running then
-        -- Если мир не загрузился — подожди и попробуй снова
         task.wait(5)
     end
 
     if not running then break end
 
     -- =====================
-    -- ===== ПАУЗА 30 СЕК =====
+    -- ===== ПАУЗА 2 МИНУТЫ (120 сек) =====
     -- =====================
     for i = REST_WAIT, 1, -1 do
         if not running then break end
         local percent = math.floor(((REST_WAIT - i) / REST_WAIT) * 100)
-        updateProgress(percent, 100, Color3.fromRGB(255, 180, 0), "💤 Пауза " .. i .. "с")
+        local mins = math.floor(i / 60)
+        local secs = i % 60
+        updateProgress(percent, 100, Color3.fromRGB(255, 180, 0), 
+            string.format("💤 Пауза %d:%02d", mins, secs))
         task.wait(1)
     end
 end
 
 -- =====================
--- ===== ЗАВЕРШЕНИЕ =====
+-- ===== ЗАВЕРШЕНИЕ =====================
 -- =====================
 if running then
     updateProgress(100, 100, Color3.fromRGB(0, 220, 0), "✅ Завершено")
