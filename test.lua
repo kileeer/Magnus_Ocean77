@@ -222,35 +222,11 @@ local function teleportTo(pos)
     hrp.CFrame = CFrame.new(pos)
 end
 
--- 🎹 Нажатие клавиши (хотбар)
-local function pressKey(key)
-    local vim = game:GetService("VirtualInputManager")
-    vim:SendKeyEvent(true, key, false, game)
-    task.wait(0.05)
-    vim:SendKeyEvent(false, key, false, game)
-end
-
 -- =====================
--- ===== РЕДЖОИН (из IY) =====
+-- ===== РЕДЖОИН (через Kick) =====================
 -- =====================
 local function rejoin()
-    local TeleportService = game:GetService("TeleportService")
-    local PlayersService = game:GetService("Players")
-    local player = PlayersService.LocalPlayer
-
-    -- Сохраняем ID ДО телепорта
-    local savedPlaceId = game.PlaceId
-    local savedJobId = game.JobId
-
-    if #PlayersService:GetPlayers() <= 1 then
-        -- Один на сервере → Kick + Teleport
-        player:Kick("\nRejoining...")
-        task.wait(0.3)
-        TeleportService:Teleport(savedPlaceId, player)
-    else
-        -- Есть игроки → TeleportToPlaceInstance
-        TeleportService:TeleportToPlaceInstance(savedPlaceId, savedJobId, player)
-    end
+    game.Players.LocalPlayer:Kick("Rejoining...")
 end
 
 -- Кнопка стоп
