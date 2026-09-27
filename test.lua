@@ -1,6 +1,4 @@
--- =====================
 -- ===== НАСТРОЙКИ =====
--- =====================
 local LOAD_WAIT  = 10
 local EVENT_WAIT = 6
 local PRE_FARM_TP = Vector3.new(27610.05, 16.65, -8107.77)
@@ -8,7 +6,6 @@ local PRE_FARM_WAIT = 1
 local TP_SETTLE  = 0.25
 local DELAY      = 0.75
 local GREEN_MAX_Y = -60
-local ROUNDS = 1        -- сколько кругов до реджоина
 -- =====================
 
 -- =====================
@@ -225,30 +222,33 @@ local function teleportTo(pos)
     hrp.CFrame = CFrame.new(pos)
 end
 
+-- 🎹 Нажатие клавиши (хотбар)
+local function pressKey(key)
+    local vim = game:GetService("VirtualInputManager")
+    vim:SendKeyEvent(true, key, false, game)
+    task.wait(0.05)
+    vim:SendKeyEvent(false, key, false, game)
+end
+
 -- =====================
--- ===== РЕДЖОИН (как IY) =====
+-- ===== РЕДЖОИН (из IY) =====
 -- =====================
 local function rejoin()
     local TeleportService = game:GetService("TeleportService")
     local PlayersService = game:GetService("Players")
     local player = PlayersService.LocalPlayer
 
-    -- Сохраняем ДО телепорта
+    -- Сохраняем ID ДО телепорта
     local savedPlaceId = game.PlaceId
     local savedJobId = game.JobId
 
-    print("🔄 Реджоин")
-    print("   PlaceId:", savedPlaceId)
-    print("   JobId:", savedJobId)
-    print("   Игроков:", #PlayersService:GetPlayers())
-
     if #PlayersService:GetPlayers() <= 1 then
-        print("   → Кик + ТП на новый сервер")
+        -- Один на сервере → Kick + Teleport
         player:Kick("\nRejoining...")
         task.wait(0.3)
         TeleportService:Teleport(savedPlaceId, player)
     else
-        print("   → ТП на тот же сервер")
+        -- Есть игроки → TeleportToPlaceInstance
         TeleportService:TeleportToPlaceInstance(savedPlaceId, savedJobId, player)
     end
 end
@@ -364,58 +364,57 @@ local function findHighestYInColumn()
 end
 
 -- =====================
--- ===== ФАРМ (1 круг) =====
+-- ===== ФАРМ (1 круг) =====================
 -- =====================
 updateProgress(0, 100, Color3.fromRGB(60, 150, 255), "▶ Фарм")
 
-if running then
-    while running do
-        local y = findHighestYInColumn()
-        if not y then
-            -- Круг закончен
-            break
-        else
-            local bombKey = getBombKey(y)
-            local bombColor = bombKey == "green" and Color3.fromRGB(0, 220, 0) or Color3.fromRGB(255, 220, 0)
+while running do
+    local y = findHighestYInColumn()
+    if not y then
+        -- Круг закончен
+        break
+    end
 
-            local totalPoints = 0
-            for x = startX, region.Max.X - 1, STEP do
-                for z = startZ, region.Max.Z - 1, STEP do
-                    if world:GetBlock(Vector3int16.new(x, y, z)) then
-                        totalPoints = totalPoints + 1
-                    end
-                end
+    local bombKey = getBombKey(y)
+    local bombColor = bombKey == "green" and Color3.fromRGB(0, 220, 0) or Color3.fromRGB(255, 220, 0)
+
+    -- Считаем точки слоя
+    local totalPoints = 0
+    for x = startX, region.Max.X - 1, STEP do
+        for z = startZ, region.Max.Z - 1, STEP do
+            if world:GetBlock(Vector3int16.new(x, y, z)) then
+                totalPoints = totalPoints + 1
             end
+        end
+    end
 
-            local currentPoint = 0
+    local currentPoint = 0
 
-            for x = startX, region.Max.X - 1, STEP do
-                if not running then break end
-                for z = startZ, region.Max.Z - 1, STEP do
-                    if not running then break end
+    for x = startX, region.Max.X - 1, STEP do
+        if not running then break end
+        for z = startZ, region.Max.Z - 1, STEP do
+            if not running then break end
 
-                    local block = world:GetBlock(Vector3int16.new(x, y, z))
-                    if block then
-                        currentPoint = currentPoint + 1
+            local block = world:GetBlock(Vector3int16.new(x, y, z))
+            if block then
+                currentPoint = currentPoint + 1
 
-                        updateProgress(currentPoint, totalPoints, bombColor,
-                            string.format("Y=%d | %d/%d %s", y, currentPoint, totalPoints,
-                                bombKey == "green" and "🟢" or "🟡"))
+                updateProgress(currentPoint, totalPoints, bombColor,
+                    string.format("Y=%d | %d/%d %s", y, currentPoint, totalPoints,
+                        bombKey == "green" and "🟢" or "🟡"))
 
-                        if not getHRP() then task.wait(0.5) end
-                        teleportToGrid(x, y, z)
-                        task.wait(TP_SETTLE)
-                        useBomb(bombKey)
-                        task.wait(DELAY)
-                    end
-                end
+                if not getHRP() then task.wait(0.5) end
+                teleportToGrid(x, y, z)
+                task.wait(TP_SETTLE)
+                useBomb(bombKey)
+                task.wait(DELAY)
             end
         end
     end
 end
 
 -- =====================
--- ===== РЕДЖОИН В КОНЦЕ =====
+-- ===== РЕДЖОИН =====================
 -- =====================
 if running then
     updateProgress(100, 100, Color3.fromRGB(150, 200, 255), "🔄 Реджоин...")
