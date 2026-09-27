@@ -1,48 +1,59 @@
 -- =====================
 -- ===== МОДУЛИ =====
 -- =====================
-local Players = game:GetService("Players")
-local LocalPlayer = Players.LocalPlayer
-
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local Network = ReplicatedStorage:WaitForChild("Network")
-local FJ_Merge = Network:WaitForChild("FJ_Merge")
+local Network = ReplicatedStorage:WaitForChild("Network", 10)
+local FJ_Merge = Network:WaitForChild("FJ_Merge", 10)
+
+if not FJ_Merge then
+    warn("❌ FJ_Merge не найден! Подожди прогрузку или перезапусти.")
+    return
+end
 
 -- =====================
--- ===== НАСТРОЙКИ КРАФТОВ =====
+-- ===== НАСТРОЙКИ =====
 -- =====================
-local MAX_PER_CRAFT = 100  -- сервер разрешает максимум 100 за раз
+local MAX_PER_CRAFT = 100       -- максимум за 1 крафт
+local DEFAULT_INTERVAL = 2      -- интервал 2 сек
 
--- [tier] = { enabled, totalAmount, count, doneToday }
--- totalAmount — сколько ВСЕГО хочешь (скрипт сам разобьёт на 100)
+-- [tier] = { enabled, amount }
 local CRAFTS = {
-    [4] = { enabled = true,  totalAmount = 100, count = 0, doneToday = 0 },
-    [5] = { enabled = true,  totalAmount = 100, count = 0, doneToday = 0 },
-    [6] = { enabled = true,  totalAmount = 100, count = 0, doneToday = 0 },
-    [7] = { enabled = false, totalAmount = 20,  count = 0, doneToday = 0 },
+    [4] = { enabled = true,  amount = 100 },
+    [5] = { enabled = true,  amount = 100 },
+    [6] = { enabled = true,  amount = 100 },
+    [7] = { enabled = false, amount = 20  },
 }
 
 -- =====================
--- ===== ГУИ =====================
+-- ===== ГУИ =====
 -- =====================
-local BG_COLOR        = Color3.fromRGB(20, 30, 60)
-local PANEL_COLOR     = Color3.fromRGB(10, 15, 30)
-local ACCENT          = Color3.fromRGB(100, 150, 255)
-local TEXT_COLOR      = Color3.fromRGB(230, 240, 255)
-local GREEN           = Color3.fromRGB(0, 220, 0)
-local RED             = Color3.fromRGB(255, 100, 100)
-local YELLOW          = Color3.fromRGB(255, 220, 0)
+local BG_COLOR    = Color3.fromRGB(20, 30, 60)
+local PANEL_COLOR = Color3.fromRGB(10, 15, 30)
+local ACCENT      = Color3.fromRGB(100, 150, 255)
+local TEXT_COLOR  = Color3.fromRGB(230, 240, 255)
+local GREEN       = Color3.fromRGB(0, 220, 0)
+local RED         = Color3.fromRGB(255, 100, 100)
+local YELLOW      = Color3.fromRGB(255, 220, 0)
+local GRAY        = Color3.fromRGB(60, 60, 70)
+
+local function getGuiParent()
+    if gethui then
+        local ok, res = pcall(gethui)
+        if ok and res then return res end
+    end
+    return game:GetService("Players").LocalPlayer:WaitForChild("PlayerGui")
+end
 
 local gui = Instance.new("ScreenGui")
 gui.Name = "AutoCraftGui"
 gui.ResetOnSpawn = false
 gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 gui.IgnoreGuiInset = true
-gui.Parent = game.CoreGui
+gui.Parent = getGuiParent()
 
--- ===== Главная панель =====
+-- Главная панель
 local panel = Instance.new("Frame")
-panel.Size = UDim2.new(0, 380, 0, 500)
+panel.Size = UDim2.new(0, 380, 0, 480)
 panel.Position = UDim2.new(0, 10, 0, 10)
 panel.BackgroundColor3 = PANEL_COLOR
 panel.BackgroundTransparency = 0.15
@@ -57,7 +68,7 @@ panelStroke.Thickness = 1
 panelStroke.Transparency = 0.4
 panelStroke.Parent = panel
 
--- ===== Заголовок =====
+-- Заголовок
 local title = Instance.new("TextLabel")
 title.Size = UDim2.new(1, -20, 0, 30)
 title.Position = UDim2.new(0, 10, 0, 10)
@@ -96,12 +107,12 @@ do
     end)
 end
 
--- ===== Инфо про лимит =====
+-- Инфо
 local limitInfo = Instance.new("TextLabel")
 limitInfo.Size = UDim2.new(1, -20, 0, 20)
 limitInfo.Position = UDim2.new(0, 10, 0, 42)
 limitInfo.BackgroundTransparency = 1
-limitInfo.Text = "⚠️ Максимум " .. MAX_PER_CRAFT .. " за 1 крафт (дробится авто)"
+limitInfo.Text = "🔁 Максимум " .. MAX_PER_CRAFT .. " шт за цикл"
 limitInfo.TextColor3 = YELLOW
 limitInfo.Font = Enum.Font.GothamMedium
 limitInfo.TextSize = 12
@@ -109,7 +120,7 @@ limitInfo.TextXAlignment = Enum.TextXAlignment.Left
 limitInfo.ZIndex = 6
 limitInfo.Parent = panel
 
--- ===== Интервал =====
+-- Интервал
 local intervalLabel = Instance.new("TextLabel")
 intervalLabel.Size = UDim2.new(1, -20, 0, 22)
 intervalLabel.Position = UDim2.new(0, 10, 0, 68)
@@ -127,7 +138,7 @@ intervalBox.Size = UDim2.new(0, 80, 0, 26)
 intervalBox.Position = UDim2.new(1, -90, 0, 68)
 intervalBox.BackgroundColor3 = BG_COLOR
 intervalBox.BorderSizePixel = 0
-intervalBox.Text = "1"
+intervalBox.Text = tostring(DEFAULT_INTERVAL)
 intervalBox.TextColor3 = TEXT_COLOR
 intervalBox.Font = Enum.Font.GothamBold
 intervalBox.TextSize = 14
@@ -135,7 +146,7 @@ intervalBox.ZIndex = 6
 intervalBox.Parent = panel
 Instance.new("UICorner", intervalBox).CornerRadius = UDim.new(0, 6)
 
--- ===== Разделитель =====
+-- Разделитель
 local line1 = Instance.new("Frame")
 line1.Size = UDim2.new(1, -20, 0, 1)
 line1.Position = UDim2.new(0, 10, 0, 102)
@@ -145,7 +156,7 @@ line1.BorderSizePixel = 0
 line1.ZIndex = 6
 line1.Parent = panel
 
--- ===== Заголовок колонок =====
+-- Заголовки колонок
 local headerTier = Instance.new("TextLabel")
 headerTier.Size = UDim2.new(0, 80, 0, 20)
 headerTier.Position = UDim2.new(0, 40, 0, 108)
@@ -162,7 +173,7 @@ local headerTotal = Instance.new("TextLabel")
 headerTotal.Size = UDim2.new(0, 70, 0, 20)
 headerTotal.Position = UDim2.new(0, 165, 0, 108)
 headerTotal.BackgroundTransparency = 1
-headerTotal.Text = "ВСЕГО"
+headerTotal.Text = "ЗА РАЗ"
 headerTotal.TextColor3 = ACCENT
 headerTotal.Font = Enum.Font.GothamBold
 headerTotal.TextSize = 11
@@ -174,7 +185,7 @@ local headerCount = Instance.new("TextLabel")
 headerCount.Size = UDim2.new(0, 100, 0, 20)
 headerCount.Position = UDim2.new(1, -110, 0, 108)
 headerCount.BackgroundTransparency = 1
-headerCount.Text = "ВЫПОЛНЕНО"
+headerCount.Text = "ВСЕГО СДЕЛАНО"
 headerCount.TextColor3 = ACCENT
 headerCount.Font = Enum.Font.GothamBold
 headerCount.TextSize = 11
@@ -202,7 +213,7 @@ local function makeCraftRow(tier, yPos)
     local check = Instance.new("TextButton")
     check.Size = UDim2.new(0, 26, 0, 26)
     check.Position = UDim2.new(0, 8, 0, 8)
-    check.BackgroundColor3 = CRAFTS[tier].enabled and GREEN or Color3.fromRGB(60, 60, 70)
+    check.BackgroundColor3 = CRAFTS[tier].enabled and GREEN or GRAY
     check.BorderSizePixel = 0
     check.Text = CRAFTS[tier].enabled and "✓" or ""
     check.TextColor3 = Color3.fromRGB(255, 255, 255)
@@ -218,33 +229,33 @@ local function makeCraftRow(tier, yPos)
     nameLabel.Position = UDim2.new(0, 42, 0, 8)
     nameLabel.BackgroundTransparency = 1
     nameLabel.Text = "Tier " .. tier
-    nameLabel.TextColor3 = TEXT_COLOR
+    nameLabel.TextColor3 = CRAFTS[tier].enabled and TEXT_COLOR or GRAY
     nameLabel.Font = Enum.Font.GothamBold
     nameLabel.TextSize = 15
     nameLabel.TextXAlignment = Enum.TextXAlignment.Left
     nameLabel.ZIndex = 7
     nameLabel.Parent = row
 
-    -- Поле "ВСЕГО" (сколько хочешь скрафтить)
-    local totalBox = Instance.new("TextBox")
-    totalBox.Size = UDim2.new(0, 70, 0, 26)
-    totalBox.Position = UDim2.new(0, 145, 0, 8)
-    totalBox.BackgroundColor3 = Color3.fromRGB(30, 40, 60)
-    totalBox.BorderSizePixel = 0
-    totalBox.Text = tostring(CRAFTS[tier].totalAmount)
-    totalBox.TextColor3 = TEXT_COLOR
-    totalBox.Font = Enum.Font.GothamBold
-    totalBox.TextSize = 14
-    totalBox.ZIndex = 7
-    totalBox.Parent = row
-    Instance.new("UICorner", totalBox).CornerRadius = UDim.new(0, 6)
+    -- Поле "ЗА РАЗ"
+    local amountBox = Instance.new("TextBox")
+    amountBox.Size = UDim2.new(0, 70, 0, 26)
+    amountBox.Position = UDim2.new(0, 145, 0, 8)
+    amountBox.BackgroundColor3 = Color3.fromRGB(30, 40, 60)
+    amountBox.BorderSizePixel = 0
+    amountBox.Text = tostring(CRAFTS[tier].amount)
+    amountBox.TextColor3 = TEXT_COLOR
+    amountBox.Font = Enum.Font.GothamBold
+    amountBox.TextSize = 14
+    amountBox.ZIndex = 7
+    amountBox.Parent = row
+    Instance.new("UICorner", amountBox).CornerRadius = UDim.new(0, 6)
 
-    -- Счётчик (сколько выполнено)
+    -- Счётчик всего сделано
     local countLabel = Instance.new("TextLabel")
     countLabel.Size = UDim2.new(0, 130, 0, 26)
     countLabel.Position = UDim2.new(1, -138, 0, 8)
     countLabel.BackgroundTransparency = 1
-    countLabel.Text = "0 / " .. CRAFTS[tier].totalAmount
+    countLabel.Text = "0"
     countLabel.TextColor3 = YELLOW
     countLabel.Font = Enum.Font.GothamBold
     countLabel.TextSize = 13
@@ -255,27 +266,29 @@ local function makeCraftRow(tier, yPos)
     -- Обработчики
     check.MouseButton1Click:Connect(function()
         CRAFTS[tier].enabled = not CRAFTS[tier].enabled
-        check.BackgroundColor3 = CRAFTS[tier].enabled and GREEN or Color3.fromRGB(60, 60, 70)
+        check.BackgroundColor3 = CRAFTS[tier].enabled and GREEN or GRAY
         check.Text = CRAFTS[tier].enabled and "✓" or ""
+        nameLabel.TextColor3 = CRAFTS[tier].enabled and TEXT_COLOR or GRAY
+        row.BackgroundTransparency = CRAFTS[tier].enabled and 0.5 or 0.8
     end)
 
-    totalBox.FocusLost:Connect(function()
-        local num = tonumber(totalBox.Text)
+    amountBox.FocusLost:Connect(function()
+        local num = tonumber(amountBox.Text)
         if num and num > 0 then
-            CRAFTS[tier].totalAmount = math.floor(num)
-            CRAFTS[tier].doneToday = 0
-            totalBox.Text = tostring(CRAFTS[tier].totalAmount)
-            countLabel.Text = "0 / " .. CRAFTS[tier].totalAmount
+            CRAFTS[tier].amount = math.min(math.floor(num), MAX_PER_CRAFT)
+            amountBox.Text = tostring(CRAFTS[tier].amount)
         else
-            totalBox.Text = tostring(CRAFTS[tier].totalAmount)
+            amountBox.Text = tostring(CRAFTS[tier].amount)
         end
     end)
 
     craftRows[tier] = {
         row = row,
         check = check,
-        totalBox = totalBox,
+        amountBox = amountBox,
         countLabel = countLabel,
+        nameLabel = nameLabel,
+        totalDone = 0,
     }
 end
 
@@ -285,7 +298,7 @@ for tier, _ in pairs(CRAFTS) do
     yStart = yStart + 48
 end
 
--- ===== Разделитель 2 =====
+-- Разделитель 2
 local line2 = Instance.new("Frame")
 line2.Size = UDim2.new(1, -20, 0, 1)
 line2.Position = UDim2.new(0, 10, 0, yStart + 5)
@@ -295,7 +308,7 @@ line2.BorderSizePixel = 0
 line2.ZIndex = 6
 line2.Parent = panel
 
--- ===== Кнопка Старт/Стоп =====
+-- Кнопка Старт/Стоп
 local toggleBtn = Instance.new("TextButton")
 toggleBtn.Size = UDim2.new(1, -20, 0, 44)
 toggleBtn.Position = UDim2.new(0, 10, 0, yStart + 15)
@@ -309,7 +322,7 @@ toggleBtn.ZIndex = 6
 toggleBtn.Parent = panel
 Instance.new("UICorner", toggleBtn).CornerRadius = UDim.new(0, 8)
 
--- ===== Статус =====
+-- Статус
 local statusLabel = Instance.new("TextLabel")
 statusLabel.Size = UDim2.new(1, -20, 0, 22)
 statusLabel.Position = UDim2.new(0, 10, 0, yStart + 66)
@@ -321,7 +334,7 @@ statusLabel.TextSize = 14
 statusLabel.ZIndex = 6
 statusLabel.Parent = panel
 
--- ===== Инфо =====
+-- Инфо
 local infoLabel = Instance.new("TextLabel")
 infoLabel.Size = UDim2.new(1, -20, 0, 22)
 infoLabel.Position = UDim2.new(0, 10, 0, yStart + 88)
@@ -334,87 +347,71 @@ infoLabel.ZIndex = 6
 infoLabel.Parent = panel
 
 -- =====================
--- ===== ЛОГИКА АВТО-КРАФТА =====
+-- ===== ЛОГИКА =====
 -- =====================
 local running = false
 local totalCycles = 0
 
--- Крафт с дроблением на куски по 100
-local function craftTier(tier, totalAmount)
-    local left = totalAmount
-    while left > 0 and running do
-        local chunk = math.min(left, MAX_PER_CRAFT)  -- максимум 100
-        pcall(function()
-            FJ_Merge:InvokeServer(
-                "MiningCraftMachine",
-                tier,
-                chunk,
-                { shiny = false, pt = 0 }
-            )
-        end)
-        left = left - chunk
-        task.wait(0.1)  -- небольшая пауза между кусками
-    end
-end
-
 local function craftLoop()
     while running do
-        local interval = tonumber(intervalBox.Text) or 1
+        local interval = tonumber(intervalBox.Text) or DEFAULT_INTERVAL
+        local activeTiers = {}
 
+        -- Собираем включённые тиры
         for tier = 1, 20 do
-            if not running then break end
             local cfg = CRAFTS[tier]
-            if cfg and cfg.enabled and cfg.doneToday < cfg.totalAmount then
-                -- Сколько осталось скрафтить
-                local remaining = cfg.totalAmount - cfg.doneToday
-                local toCraft = math.min(remaining, MAX_PER_CRAFT)
-
-                pcall(function()
-                    FJ_Merge:InvokeServer(
-                        "MiningCraftMachine",
-                        tier,
-                        toCraft,
-                        { shiny = false, pt = 0 }
-                    )
-                end)
-
-                cfg.doneToday = cfg.doneToday + toCraft
-                cfg.count = cfg.count + 1
-
-                -- Обновляем счётчик в ГУИ
-                if craftRows[tier] then
-                    craftRows[tier].countLabel.Text = cfg.doneToday .. " / " .. cfg.totalAmount
-                    if cfg.doneToday >= cfg.totalAmount then
-                        craftRows[tier].countLabel.TextColor3 = GREEN
-                    end
-                end
-
-                totalCycles = totalCycles + 1
-                infoLabel.Text = "Выполнено циклов: " .. totalCycles
-
-                task.wait(0.05)
+            if cfg and cfg.enabled then
+                table.insert(activeTiers, tier)
             end
         end
 
-        -- Проверяем, всё ли сделано
-        local allDone = true
-        for tier, cfg in pairs(CRAFTS) do
-            if cfg.enabled and cfg.doneToday < cfg.totalAmount then
-                allDone = false
-                break
-            end
-        end
-
-        if allDone then
+        if #activeTiers == 0 then
             running = false
             toggleBtn.Text = "▶ СТАРТ"
             toggleBtn.BackgroundColor3 = Color3.fromRGB(0, 180, 0)
-            statusLabel.Text = "✅ Всё скрафчено!"
-            statusLabel.TextColor3 = GREEN
+            statusLabel.Text = "⚠️ Выбери хотя бы 1 тир!"
+            statusLabel.TextColor3 = RED
             break
         end
 
-        task.wait(interval)
+        -- Крафтим все включённые тиры
+        for _, tier in ipairs(activeTiers) do
+            if not running then break end
+            local cfg = CRAFTS[tier]
+
+            statusLabel.Text = "⚒️ Крафчу Tier " .. tier
+            statusLabel.TextColor3 = YELLOW
+
+            pcall(function()
+                FJ_Merge:InvokeServer(
+                    "MiningCraftMachine",
+                    tier,
+                    cfg.amount,
+                    { shiny = false, pt = 0 }
+                )
+            end)
+
+            if craftRows[tier] then
+                craftRows[tier].totalDone = craftRows[tier].totalDone + cfg.amount
+                craftRows[tier].countLabel.Text = tostring(craftRows[tier].totalDone)
+            end
+
+            -- Пауза между тирами
+            local t1 = os.clock()
+            repeat task.wait() until os.clock() - t1 >= 0.3
+        end
+
+        totalCycles = totalCycles + 1
+        infoLabel.Text = "Выполнено циклов: " .. totalCycles
+        statusLabel.Text = "⏳ Жду " .. interval .. " сек..."
+        statusLabel.TextColor3 = ACCENT
+
+        -- Интервал между циклами
+        local waitStart = os.clock()
+        repeat
+            if not running then break end
+            task.wait()
+        until os.clock() - waitStart >= interval
     end
 end
 
@@ -429,15 +426,6 @@ toggleBtn.MouseButton1Click:Connect(function()
         statusLabel.Text = "⏹ Остановлено"
         statusLabel.TextColor3 = RED
     else
-        -- Сбрасываем счётчики выполненных
-        for tier, cfg in pairs(CRAFTS) do
-            cfg.doneToday = 0
-            if craftRows[tier] then
-                craftRows[tier].countLabel.Text = "0 / " .. cfg.totalAmount
-                craftRows[tier].countLabel.TextColor3 = YELLOW
-            end
-        end
-
         running = true
         toggleBtn.Text = "⏹ СТОП"
         toggleBtn.BackgroundColor3 = Color3.fromRGB(200, 40, 40)
