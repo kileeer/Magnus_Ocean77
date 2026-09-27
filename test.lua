@@ -1,24 +1,13 @@
--- ==========================================
--- M A G N U S   2 4 / 7
--- Фарм → Пауза 2м → Бест-зона → Фарм
--- ==========================================
-
-print("🚀 ЗАПУСК M A G N U S...")
-
--- =====================
 -- ===== НАСТРОЙКИ =====
--- =====================
 local LOAD_WAIT  = 10
 local EVENT_WAIT = 6
 local PRE_FARM_TP = Vector3.new(27610.05, 16.65, -8107.77)
 local PRE_FARM_WAIT = 1
-local TP_SETTLE  = 0.5
-local DELAY      = 0.75
-local GREEN_MAX_Y = -60
-local REST_WAIT  = 90
+local TP_WAIT = 0.35
+local BOMB_WAIT = 0.90
 
-local ORE_ID     = "Eclipse Onyx Gem"
-local ORE_NAME   = "Eclipse Onyx"
+-- 🟢 если Y >= -350, иначе 🟡
+local GREEN_MAX_Y = -350
 -- =====================
 
 -- =====================
@@ -40,83 +29,8 @@ local Save = require(ReplicatedStorage.Library.Client.Save)
 local Blocks = require(ReplicatedStorage.Library.Types.Blocks)
 local BlockWorldClient = require(ReplicatedStorage.Library.Client.ToolCmds.BlockWorldClient)
 
-local ConsumablesEvent = Network:WaitForChild("Consumables_Consume")
-
 -- =====================
--- ===== БОМБЫ (UID) =====
--- =====================
-local BOMB_UIDS = { green = nil, yellow = nil }
-
-local function findBombUIDs()
-    local data = Save.Get()
-    if not data or not data.Inventory or not data.Inventory.Consumable then
-        return false
-    end
-    for uid, core in pairs(data.Inventory.Consumable) do
-        if core.id == "Drill Array" then
-            BOMB_UIDS.green = uid
-        elseif core.id == "Core Charge" then
-            BOMB_UIDS.yellow = uid
-        end
-    end
-    return BOMB_UIDS.green ~= nil and BOMB_UIDS.yellow ~= nil
-end
-
-local function countBombs(bombType)
-    local data = Save.Get()
-    if not data or not data.Inventory or not data.Inventory.Consumable then
-        return 0
-    end
-    local targetId = (bombType == "green") and "Drill Array" or "Core Charge"
-    local total = 0
-    for uid, core in pairs(data.Inventory.Consumable) do
-        if core.id == targetId then
-            total = total + (core._am or core.amount or core.count or 1)
-        end
-    end
-    return total
-end
-
-local function countOre()
-    local data = Save.Get()
-    if not data or not data.Inventory or not data.Inventory.Misc then
-        return 0
-    end
-    local total = 0
-    for uid, item in pairs(data.Inventory.Misc) do
-        if item.id == ORE_ID then
-            total = total + (item._am or 1)
-        end
-    end
-    return total
-end
-
--- =====================
--- ===== ЖДЁМ ПРОГРУЗКУ =====
--- =====================
-repeat task.wait(0.5) until Save.Get() and Save.Get().Inventory and Save.Get().Inventory.Consumable
-task.wait(2)
-
-local START_GREEN  = countBombs("green")
-local START_YELLOW = countBombs("yellow")
-local START_ORE    = countOre()
-local START_TIME   = tick()
-
-print(string.format("📊 СТАРТ: 🟢 %d | 🟡 %d | 💎 %d", START_GREEN, START_YELLOW, START_ORE))
-
--- =====================
--- ===== GUI PARENT =====
--- =====================
-local function getGuiParent()
-    if gethui then
-        local ok, res = pcall(gethui)
-        if ok and res then return res end
-    end
-    return game:GetService("Players").LocalPlayer:WaitForChild("PlayerGui")
-end
-
--- =====================
--- ===== ГУИ =====
+-- ===== ГУИ: АВАТАР B1ZE =====
 -- =====================
 local OWNER_USER_ID   = 11205845971
 local LINE_1          = "[B1ZE]"
@@ -125,45 +39,27 @@ local BG_COLOR        = Color3.fromRGB(20, 30, 60)
 local BG_TRANSPARENCY = 0.4
 local AVATAR_SIZE     = 200
 
-local ACCENT     = Color3.fromRGB(100, 150, 255)
-local GREEN      = Color3.fromRGB(0, 220, 0)
-local RED        = Color3.fromRGB(255, 100, 100)
-local YELLOW     = Color3.fromRGB(255, 220, 0)
-local PANEL      = Color3.fromRGB(10, 15, 30)
-local ORE_COLOR  = Color3.fromRGB(180, 130, 255)
-
 local gui = Instance.new("ScreenGui")
-gui.Name = "MagnusGui"
+gui.Name = "AvatarGui"
 gui.ResetOnSpawn = false
 gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 gui.IgnoreGuiInset = true
-gui.Parent = getGuiParent()
+gui.Parent = game.CoreGui
 
--- =====================
--- ===== ОСНОВНОЙ КОНТЕЙНЕР =====
--- =====================
-local mainContainer = Instance.new("Frame")
-mainContainer.Size = UDim2.new(1, 0, 1, 0)
-mainContainer.BackgroundTransparency = 1
-mainContainer.ZIndex = 1
-mainContainer.Parent = gui
-
--- Фон
 local bg = Instance.new("Frame")
 bg.Size = UDim2.new(1, 0, 1, 0)
 bg.BackgroundColor3 = BG_COLOR
 bg.BackgroundTransparency = BG_TRANSPARENCY
 bg.BorderSizePixel = 0
 bg.ZIndex = 1
-bg.Parent = mainContainer
+bg.Parent = gui
 
--- Аватар
 local container = Instance.new("Frame")
 container.Size = UDim2.new(0, AVATAR_SIZE, 0, AVATAR_SIZE + 100)
 container.Position = UDim2.new(0.5, -AVATAR_SIZE/2, 0.5, -(AVATAR_SIZE + 100)/2)
 container.BackgroundTransparency = 1
 container.ZIndex = 2
-container.Parent = mainContainer
+container.Parent = gui
 
 local img = Instance.new("ImageLabel")
 img.Size = UDim2.new(0, AVATAR_SIZE, 0, AVATAR_SIZE)
@@ -209,213 +105,85 @@ sizeC2.MaxTextSize = 22
 sizeC2.MinTextSize = 12
 sizeC2.Parent = line2
 
--- =====================
--- ===== ПАНЕЛЬ СТАТИСТИКИ (ЛЕВЫЙ ВЕРХНИЙ УГОЛ) =====================
--- =====================
-local statsPanel = Instance.new("Frame")
-statsPanel.Size = UDim2.new(0, 360, 0, 310)
-statsPanel.Position = UDim2.new(0, 10, 0, 10)
-statsPanel.BackgroundColor3 = PANEL
-statsPanel.BackgroundTransparency = 0.15
-statsPanel.BorderSizePixel = 0
-statsPanel.ZIndex = 5
-statsPanel.Parent = mainContainer
-Instance.new("UICorner", statsPanel).CornerRadius = UDim.new(0, 10)
+local btn = Instance.new("TextButton")
+btn.Size = UDim2.new(0, 110, 0, 32)
+btn.Position = UDim2.new(1, -120, 0, 10)
+btn.BackgroundColor3 = Color3.fromRGB(10, 15, 30)
+btn.BorderSizePixel = 0
+btn.Text = "👁 Скрыть"
+btn.TextColor3 = Color3.fromRGB(150, 200, 255)
+btn.Font = Enum.Font.GothamBold
+btn.TextSize = 13
+btn.ZIndex = 5
+btn.Parent = gui
+Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 8)
 
-local statsStroke = Instance.new("UIStroke")
-statsStroke.Color = ACCENT
-statsStroke.Thickness = 1
-statsStroke.Transparency = 0.3
-statsStroke.Parent = statsPanel
+local stroke = Instance.new("UIStroke")
+stroke.Color = Color3.fromRGB(100, 150, 255)
+stroke.Thickness = 1
+stroke.Parent = btn
 
-local statsTitle = Instance.new("TextLabel")
-statsTitle.Size = UDim2.new(1, -20, 0, 24)
-statsTitle.Position = UDim2.new(0, 10, 0, 8)
-statsTitle.BackgroundTransparency = 1
-statsTitle.Text = "📊 СТАТИСТИКА"
-statsTitle.TextColor3 = ACCENT
-statsTitle.Font = Enum.Font.GothamBold
-statsTitle.TextSize = 15
-statsTitle.TextXAlignment = Enum.TextXAlignment.Left
-statsTitle.ZIndex = 6
-statsTitle.Parent = statsPanel
-
--- Драг панели
-do
-    local dragging, dragInput, dragStart, startPos
-    statsTitle.InputBegan:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-            dragging = true
-            dragStart = input.Position
-            startPos = statsPanel.Position
-            input.Changed:Connect(function()
-                if input.UserInputState == Enum.UserInputState.End then dragging = false end
-            end)
-        end
-    end)
-    statsTitle.InputChanged:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
-            dragInput = input
-        end
-    end)
-    game:GetService("UserInputService").InputChanged:Connect(function(input)
-        if input == dragInput and dragging then
-            local delta = input.Position - dragStart
-            statsPanel.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
-        end
-    end)
-end
-
-local function makeLine(yPos, color, defaultText, fontSize)
-    local line = Instance.new("TextLabel")
-    line.Size = UDim2.new(1, -20, 0, 22)
-    line.Position = UDim2.new(0, 10, 0, yPos)
-    line.BackgroundTransparency = 1
-    line.Text = defaultText
-    line.TextColor3 = color
-    line.Font = Enum.Font.GothamMedium
-    line.TextSize = fontSize or 14
-    line.TextXAlignment = Enum.TextXAlignment.Left
-    line.ZIndex = 6
-    line.Parent = statsPanel
-    return line
-end
-
-local greenLabel    = makeLine(38,  GREEN,  "🟢 TNT: 0")
-local greenSpent    = makeLine(64,  Color3.fromRGB(255, 180, 180), "   Потрачено: 0")
-local greenPerHour  = makeLine(90,  Color3.fromRGB(255, 140, 140), "   За час: 0")
-local yellowLabel   = makeLine(120, YELLOW, "🟡 TNT: 0")
-local yellowSpent   = makeLine(146, Color3.fromRGB(255, 180, 180), "   Потрачено: 0")
-local yellowPerHour = makeLine(172, Color3.fromRGB(255, 140, 140), "   За час: 0")
-local oreLabel      = makeLine(202, ORE_COLOR, "💎 " .. ORE_NAME .. ": 0")
-local oreEarned     = makeLine(228, Color3.fromRGB(200, 160, 255), "   Нафармлено: 0")
-local afkLabel      = makeLine(258, Color3.fromRGB(255, 180, 100), "💤 АФК: 00:00:00")
-local statusLabel   = makeLine(284, Color3.fromRGB(180, 200, 255), "⚙️ Статус: загрузка...")
-
--- =====================
--- ===== КНОПКА ЗАКРЫТЬ МЕНЮ (ПРАВЫЙ НИЖНИЙ УГОЛ) =====================
--- =====================
-local closeBtn = Instance.new("TextButton")
-closeBtn.Size = UDim2.new(0, 160, 0, 40)
-closeBtn.Position = UDim2.new(1, -170, 1, -56)
-closeBtn.BackgroundColor3 = PANEL
-closeBtn.BackgroundTransparency = 0.15
-closeBtn.BorderSizePixel = 0
-closeBtn.Text = "❌  ЗАКРЫТЬ МЕНЮ"
-closeBtn.TextColor3 = RED
-closeBtn.Font = Enum.Font.GothamBold
-closeBtn.TextSize = 14
-closeBtn.ZIndex = 10
-closeBtn.Parent = gui
-Instance.new("UICorner", closeBtn).CornerRadius = UDim.new(0, 10)
-
-local closeStroke = Instance.new("UIStroke")
-closeStroke.Color = RED
-closeStroke.Thickness = 1
-closeStroke.Transparency = 0.3
-closeStroke.Parent = closeBtn
-
--- =====================
--- ===== КНОПКА ОТКРЫТЬ МЕНЮ =====================
--- =====================
-local openBtn = Instance.new("TextButton")
-openBtn.Size = UDim2.new(0, 160, 0, 40)
-openBtn.Position = UDim2.new(1, -170, 1, -56)
-openBtn.BackgroundColor3 = PANEL
-openBtn.BackgroundTransparency = 0.15
-openBtn.BorderSizePixel = 0
-openBtn.Text = "✅  ОТКРЫТЬ МЕНЮ"
-openBtn.TextColor3 = GREEN
-openBtn.Font = Enum.Font.GothamBold
-openBtn.TextSize = 14
-openBtn.ZIndex = 10
-openBtn.Visible = false
-openBtn.Parent = gui
-Instance.new("UICorner", openBtn).CornerRadius = UDim.new(0, 10)
-
-local openStroke = Instance.new("UIStroke")
-openStroke.Color = GREEN
-openStroke.Thickness = 1
-openStroke.Transparency = 0.3
-openStroke.Parent = openBtn
-
--- =====================
--- ===== ЛОГИКА КНОПОК =====
--- =====================
-closeBtn.MouseButton1Click:Connect(function()
-    mainContainer.Visible = false
-    closeBtn.Visible = false
-    openBtn.Visible = true
-end)
-
-openBtn.MouseButton1Click:Connect(function()
-    mainContainer.Visible = true
-    openBtn.Visible = false
-    closeBtn.Visible = true
+local visible = true
+btn.MouseButton1Click:Connect(function()
+    visible = not visible
+    bg.Visible = visible
+    container.Visible = visible
+    btn.Text = visible and "👁 Скрыть" or "👁 Показать"
 end)
 
 -- =====================
--- ===== ТАЙМЕР АФК =====
+-- ===== ПРОГРЕСС-БАР =====================
 -- =====================
-local function formatTime(seconds)
-    local h = math.floor(seconds / 3600)
-    local m = math.floor((seconds % 3600) / 60)
-    local s = math.floor(seconds % 60)
-    return string.format("%02d:%02d:%02d", h, m, s)
+local progressBg = Instance.new("Frame")
+progressBg.Size = UDim2.new(0, 400, 0, 30)
+progressBg.Position = UDim2.new(0.5, -200, 1, -50)
+progressBg.BackgroundColor3 = Color3.fromRGB(10, 15, 30)
+progressBg.BackgroundTransparency = 0.2
+progressBg.BorderSizePixel = 0
+progressBg.ZIndex = 5
+progressBg.Parent = gui
+Instance.new("UICorner", progressBg).CornerRadius = UDim.new(0, 8)
+
+local progressFill = Instance.new("Frame")
+progressFill.Size = UDim2.new(0, 0, 1, 0)
+progressFill.BackgroundColor3 = Color3.fromRGB(60, 150, 255)
+progressFill.BorderSizePixel = 0
+progressFill.ZIndex = 6
+progressFill.Parent = progressBg
+Instance.new("UICorner", progressFill).CornerRadius = UDim.new(0, 8)
+
+local progressText = Instance.new("TextLabel")
+progressText.Size = UDim2.new(1, 0, 1, 0)
+progressText.BackgroundTransparency = 1
+progressText.Text = "Загрузка..."
+progressText.TextColor3 = Color3.fromRGB(255, 255, 255)
+progressText.TextStrokeTransparency = 0.5
+progressText.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
+progressText.Font = Enum.Font.GothamBold
+progressText.TextSize = 14
+progressText.ZIndex = 7
+progressText.Parent = progressBg
+
+local function updateProgress(current, total, color, text)
+    pcall(function()
+        local percent = 0
+        if total and total > 0 then
+            percent = math.floor((current / total) * 100)
+        end
+        progressFill.Size = UDim2.new(percent / 100, 0, 1, 0)
+        if color then
+            progressFill.BackgroundColor3 = color
+        end
+        if text then
+            progressText.Text = text
+        else
+            progressText.Text = percent .. "%"
+        end
+    end)
 end
 
 -- =====================
--- ===== ОБНОВЛЕНИЕ СТАТИСТИКИ =====
--- =====================
-local function updateStats()
-    local curGreen, curYellow, curOre = 0, 0, 0
-
-    local okG, resG = pcall(countBombs, "green")
-    if okG then curGreen = resG end
-
-    local okY, resY = pcall(countBombs, "yellow")
-    if okY then curYellow = resY end
-
-    local okO, resO = pcall(countOre)
-    if okO then curOre = resO end
-
-    if START_GREEN == 0 and curGreen > 0 then START_GREEN = curGreen end
-    if START_YELLOW == 0 and curYellow > 0 then START_YELLOW = curYellow end
-
-    local spentGreen  = math.max(0, START_GREEN  - curGreen)
-    local spentYellow = math.max(0, START_YELLOW - curYellow)
-    local earnedOre   = math.max(0, curOre - START_ORE)
-
-    local elapsed = tick() - START_TIME
-    local hours = elapsed / 3600
-    if hours < 0.001 then hours = 0.001 end
-
-    local greenPerHour  = math.floor(spentGreen / hours)
-    local yellowPerHour = math.floor(spentYellow / hours)
-
-    pcall(function() greenLabel.Text = "🟢 TNT: " .. curGreen end)
-    pcall(function() greenSpent.Text = "   Потрачено: " .. spentGreen end)
-    pcall(function() greenPerHour.Text = "   За час: " .. greenPerHour end)
-
-    pcall(function() yellowLabel.Text = "🟡 TNT: " .. curYellow end)
-    pcall(function() yellowSpent.Text = "   Потрачено: " .. spentYellow end)
-    pcall(function() yellowPerHour.Text = "   За час: " .. yellowPerHour end)
-
-    pcall(function() oreLabel.Text = "💎 " .. ORE_NAME .. ": " .. curOre end)
-    pcall(function() oreEarned.Text = "   Нафармлено: " .. earnedOre end)
-
-    pcall(function() afkLabel.Text = "💤 АФК: " .. formatTime(elapsed) end)
-end
-
-task.spawn(function()
-    while true do
-        updateStats()
-        task.wait(1)
-    end
-end)
-
--- =====================
--- ===== ЛОГИКА ФАРМА =====
+-- ===== ЛОГИКА =====
 -- =====================
 local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer
@@ -434,137 +202,14 @@ local function teleportTo(pos)
     hrp.CFrame = CFrame.new(pos)
 end
 
--- Стоп по T
+-- Кнопка стоп
 game:GetService("UserInputService").InputBegan:Connect(function(input, gpe)
     if gpe then return end
     if input.KeyCode == Enum.KeyCode.T then
         running = false
-        statusLabel.Text = "⚙️ Статус: остановлено"
-        statusLabel.TextColor3 = RED
-        print("⏹ Стоп")
+        updateProgress(0, 100, Color3.fromRGB(255, 100, 100), "⏹ Стоп")
     end
 end)
-
-local region, origin, startX, startZ, STEP, HEIGHT_OFFSET
-local world = nil
-
-local function teleportToGrid(gridX, gridY, gridZ)
-    local cf = Blocks.BlockCFrame(origin, Vector3int16.new(gridX, gridY, gridZ))
-    local target = cf.Position + Vector3.new(0, HEIGHT_OFFSET, 0)
-    teleportTo(target)
-end
-
-local function useBomb(bombKey)
-    local uid = BOMB_UIDS[bombKey]
-    if not uid then return end
-    pcall(function()
-        ConsumablesEvent:InvokeServer(uid, 1)
-    end)
-end
-
-local function getBombKey(y)
-    return y >= GREEN_MAX_Y and "green" or "yellow"
-end
-
-local function findHighestYInColumn()
-    for y = region.Max.Y, region.Min.Y, -1 do
-        if world:GetBlock(Vector3int16.new(startX, y, startZ)) then
-            return y
-        end
-    end
-    return nil
-end
-
-local function findBestZone()
-    statusLabel.Text = "🎯 Бест-зона: сканирую..."
-    statusLabel.TextColor3 = YELLOW
-
-    local bestX, bestZ, bestCount = startX, startZ, 0
-    local sampleStep = STEP * 4
-
-    for x = startX, region.Max.X - 1, sampleStep do
-        if not running then break end
-        for z = startZ, region.Max.Z - 1, sampleStep do
-            local count = 0
-            for y = region.Max.Y, region.Min.Y, -1 do
-                if world:GetBlock(Vector3int16.new(x, y, z)) then
-                    count = count + 1
-                end
-            end
-            if count > bestCount then
-                bestCount = count
-                bestX = x
-                bestZ = z
-            end
-        end
-        task.wait()
-    end
-
-    statusLabel.Text = string.format("🎯 Бест-зона: X=%d Z=%d (%d)", bestX, bestZ, bestCount)
-    statusLabel.TextColor3 = GREEN
-    print(string.format("🎯 Бест-зона: X=%d Z=%d | Блоков: %d", bestX, bestZ, bestCount))
-
-    local cf = Blocks.BlockCFrame(origin, Vector3int16.new(bestX, region.Max.Y, bestZ))
-    return cf.Position + Vector3.new(0, HEIGHT_OFFSET, 0)
-end
-
-local function farmOnce()
-    statusLabel.Text = "⏳ Ждём мир..."
-    statusLabel.TextColor3 = YELLOW
-    world = nil
-    local attempts = 0
-    repeat
-        task.wait(0.5)
-        world = BlockWorldClient.GetLocal()
-        attempts = attempts + 1
-    until world or attempts > 60
-
-    if not world then
-        statusLabel.Text = "❌ Мир не загрузился"
-        statusLabel.TextColor3 = RED
-        return false
-    end
-
-    if not findBombUIDs() then
-        statusLabel.Text = "❌ Бомбы не найдены"
-        statusLabel.TextColor3 = RED
-        return false
-    end
-
-    region = world:GetRegion()
-    origin = world:GetOrigin()
-    startX = region.Min.X + 1
-    startZ = region.Min.Z + 1
-    STEP = 3
-    HEIGHT_OFFSET = 3
-
-    statusLabel.Text = "⚙️ Статус: фарм..."
-    statusLabel.TextColor3 = GREEN
-
-    while running do
-        local y = findHighestYInColumn()
-        if not y then break end
-
-        local bombKey = getBombKey(y)
-
-        for x = startX, region.Max.X - 1, STEP do
-            if not running then break end
-            for z = startZ, region.Max.Z - 1, STEP do
-                if not running then break end
-
-                local block = world:GetBlock(Vector3int16.new(x, y, z))
-                if block then
-                    if not getHRP() then task.wait(0.5) end
-                    teleportToGrid(x, y, z)
-                    task.wait(TP_SETTLE)
-                    useBomb(bombKey)
-                    task.wait(DELAY)
-                end
-            end
-        end
-    end
-    return true
-end
 
 -- =====================
 -- ===== ЗАПУСК =====
@@ -572,63 +217,179 @@ end
 repeat task.wait(0.2) until LocalPlayer
 repeat task.wait(0.2) until LocalPlayer.Character
 repeat task.wait(0.2) until LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
-if game:IsLoaded() == false then
+if game.IsLoaded then
     repeat task.wait(0.2) until game:IsLoaded()
 end
 
+-- Прогрузка
 for i = LOAD_WAIT, 1, -1 do
-    statusLabel.Text = "⏳ Прогрузка... " .. i .. "с"
-    statusLabel.TextColor3 = YELLOW
+    local percent = math.floor(((LOAD_WAIT - i) / LOAD_WAIT) * 100)
+    updateProgress(percent, 100, Color3.fromRGB(255, 220, 0), "Прогрузка... " .. i .. "с")
     task.wait(1)
 end
 
+-- ТП в ивент
+local spot = WORLD_SPOTS[game.PlaceId]
+if not spot then
+    updateProgress(0, 100, Color3.fromRGB(255, 100, 100), "❌ Мир не найден")
+    return
+end
+updateProgress(100, 100, Color3.fromRGB(150, 200, 255), "🌍 " .. spot.name)
+teleportTo(spot.pos)
+
+-- Пауза в ивенте
+task.wait(1)
+for i = EVENT_WAIT, 1, -1 do
+    local percent = math.floor(((EVENT_WAIT - i) / EVENT_WAIT) * 100)
+    updateProgress(percent, 100, Color3.fromRGB(150, 200, 255), "⏳ Ивент... " .. i .. "с")
+    task.wait(1)
+end
+
+-- ТП на остаток лока
+updateProgress(100, 100, Color3.fromRGB(150, 200, 255), "🎯 Остаток лока")
+teleportTo(PRE_FARM_TP)
+task.wait(PRE_FARM_WAIT)
+
+-- Ждём мир
+updateProgress(0, 100, Color3.fromRGB(255, 220, 0), "⏳ Ждём мир...")
+
+local world = nil
+local attempts = 0
+repeat
+    task.wait(0.5)
+    world = BlockWorldClient.GetLocal()
+    attempts = attempts + 1
+until world or attempts > 60
+
+if not world then
+    updateProgress(0, 100, Color3.fromRGB(255, 100, 100), "❌ Мир не загрузился")
+    return
+end
+
+updateProgress(100, 100, Color3.fromRGB(0, 220, 0), "✅ Мир найден")
+
+-- Регион
+local region = world:GetRegion()
+local origin = world:GetOrigin()
+local startX = region.Min.X + 1
+local startZ = region.Min.Z + 1
+local STEP = 3
+local HEIGHT_OFFSET = 3
+
+-- UID бомб
+local GREEN_UID = nil
+local YELLOW_UID = nil
+
+local data = Save.Get()
+if data and data.Inventory and data.Inventory.Consumable then
+    for uid, core in pairs(data.Inventory.Consumable) do
+        if core.id == "Drill Array" then
+            GREEN_UID = uid
+        elseif core.id == "Core Charge" then
+            YELLOW_UID = uid
+        end
+    end
+end
+
+if not GREEN_UID or not YELLOW_UID then
+    updateProgress(0, 100, Color3.fromRGB(255, 100, 100), "❌ Бомбы не найдены")
+    return
+end
+
+-- =====================
+-- ===== ФУНКЦИИ ФАРМА =====
+-- =====================
+local function teleportToGrid(gridX, gridY, gridZ)
+    local char = LocalPlayer.Character
+    if not char then return false end
+    local root = char:FindFirstChild("HumanoidRootPart")
+    if not root then return false end
+
+    local ok = pcall(function()
+        local cf = Blocks.BlockCFrame(origin, Vector3int16.new(gridX, gridY, gridZ))
+        local target = cf.Position + Vector3.new(0, HEIGHT_OFFSET, 0)
+        root.CFrame = CFrame.new(target)
+    end)
+    return ok
+end
+
+local function useBomb(bombKey)
+    local uid = bombKey == "green" and GREEN_UID or YELLOW_UID
+    if not uid then return end
+    pcall(function()
+        Network:WaitForChild("Consumables_Consume"):InvokeServer(uid, 1)
+    end)
+end
+
+local function getBombKey(worldY)
+    return worldY >= GREEN_MAX_Y and "green" or "yellow"
+end
+
+local function findHighestYInColumn()
+    for y = region.Max.Y, region.Min.Y, -1 do
+        local ok, block = pcall(function()
+            return world:GetBlock(Vector3int16.new(startX, y, startZ))
+        end)
+        if ok and block then
+            return y
+        end
+    end
+    return nil
+end
+
+-- =====================
+-- ===== ФАРМ =====
+-- =====================
+updateProgress(0, 100, Color3.fromRGB(60, 150, 255), "▶ Фарм")
+
 while running do
-    local spot = WORLD_SPOTS[game.PlaceId]
-    if not spot then
-        statusLabel.Text = "❌ Мир не найден"
-        statusLabel.TextColor3 = RED
+    local gridY = findHighestYInColumn()
+    if not gridY then
+        updateProgress(100, 100, Color3.fromRGB(150, 255, 150), "✅ Блоков больше нет")
+        running = false
         break
     end
 
-    statusLabel.Text = "🌍 " .. spot.name
-    statusLabel.TextColor3 = ACCENT
-    teleportTo(spot.pos)
+    local worldY
+    pcall(function()
+        local cf = Blocks.BlockCFrame(origin, Vector3int16.new(startX, gridY, startZ))
+        worldY = cf.Position.Y
+    end)
 
-    task.wait(1)
-    for i = EVENT_WAIT, 1, -1 do
-        if not running then break end
-        statusLabel.Text = "⏳ Ивент... " .. i .. "с"
-        task.wait(1)
+    if not worldY then
+        updateProgress(0, 100, Color3.fromRGB(255, 180, 100), "⚠ Не удалось получить Y")
+        running = false
+        break
     end
-    if not running then break end
 
-    statusLabel.Text = "🎯 Остаток лока"
-    teleportTo(PRE_FARM_TP)
-    task.wait(PRE_FARM_WAIT)
+    local bombKey = getBombKey(worldY)
+    local bombName = bombKey == "green" and "🟢" or "🟡"
+    local bombColor = bombKey == "green" and Color3.fromRGB(150, 255, 150) or Color3.fromRGB(255, 220, 0)
 
-    local ok = farmOnce()
-    if not ok and running then task.wait(5) end
-    if not running then break end
+    updateProgress(100, 100, bombColor, string.format("%s Слой Y=%.2f", bombName, worldY))
 
-    statusLabel.Text = "⚙️ Статус: пауза..."
-    statusLabel.TextColor3 = YELLOW
-    for i = REST_WAIT, 1, -1 do
+    for x = startX, region.Max.X - 1, STEP do
         if not running then break end
-        local mins = math.floor(i / 60)
-        local secs = i % 60
-        statusLabel.Text = string.format("💤 Пауза %d:%02d", mins, secs)
-        task.wait(1)
-    end
-    if not running then break end
+        for z = startZ, region.Max.Z - 1, STEP do
+            if not running then break end
 
-    statusLabel.Text = "🎯 Ищу бест-зону..."
-    local bestZonePos = findBestZone()
-    teleportTo(bestZonePos)
-    task.wait(1)
+            local ok, block = pcall(function()
+                return world:GetBlock(Vector3int16.new(x, gridY, z))
+            end)
+
+            if ok and block then
+                if not teleportToGrid(x, gridY, z) then
+                    updateProgress(0, 100, Color3.fromRGB(255, 180, 100), "⚠ Персонаж недоступен")
+                    running = false
+                    break
+                end
+
+                task.wait(TP_WAIT)
+                useBomb(bombKey)
+                task.wait(BOMB_WAIT)
+            end
+        end
+    end
 end
 
-if running then
-    print("✅ Скрипт завершён")
-else
-    print("⏹ Скрипт остановлен")
-end
+updateProgress(0, 100, Color3.fromRGB(150, 255, 150), "✅ Готово")
