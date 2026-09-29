@@ -1,14 +1,16 @@
 -- ==========================================
 -- M A G N U S   2 4 / 7
--- Фикс: ждём прогрузку перед запуском
+-- Фарм через ХОТБАР (2 = зелёные, 3 = жёлтые)
+-- + Anti-AFK + Auto-Rejoin
 -- ==========================================
 
 -- =====================
--- ===== ЖДЁМ ИГРУ =====
+-- ===== ЖДЁМ ВСЁ =====
 -- =====================
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local VirtualUser = game:GetService("VirtualUser")
+local VirtualInputManager = game:GetService("VirtualInputManager")
 
 -- 1) Ждём LocalPlayer
 repeat task.wait(0.5) until Players.LocalPlayer
@@ -23,18 +25,24 @@ end
 repeat task.wait(0.5) until LocalPlayer.Character
 repeat task.wait(0.5) until LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
 
--- 4) Ждём модуль Library
+-- 4) Ждём Library
 repeat task.wait(0.5) until ReplicatedStorage:FindFirstChild("Library")
 local Library = ReplicatedStorage:FindFirstChild("Library")
 
--- 5) Ждём Client модули
+-- 5) Ждём Client
 repeat task.wait(0.5) until Library:FindFirstChild("Client")
 local Client = Library:FindFirstChild("Client")
 
 -- 6) Ждём Save
 repeat task.wait(0.5) until Client:FindFirstChild("Save")
 
--- 7) ТОЛЬКО ТЕПЕРЬ запускаем Anti-AFK
+-- 7) Ждём Network
+repeat task.wait(0.5) until ReplicatedStorage:FindFirstChild("Network")
+local Network = ReplicatedStorage:FindFirstChild("Network")
+
+-- =====================
+-- ===== ANTI-AFK =====
+-- =====================
 task.spawn(function()
     LocalPlayer.Idled:Connect(function()
         pcall(function()
@@ -73,6 +81,10 @@ local TP_SETTLE  = 0.25
 local DELAY      = 0.10
 local GREEN_MAX_Y = -60
 
+-- 👇 КЛАВИШИ ХОТБАРА
+local GREEN_KEY = Enum.KeyCode.Two     -- 2 = зелёная бомба (Drill Array)
+local YELLOW_KEY = Enum.KeyCode.Three  -- 3 = жёлтая бомба (Core Charge)
+
 local ORE_ID     = "Eclipse Onyx Gem"
 local ORE_NAME   = "Eclipse Onyx"
 
@@ -90,35 +102,15 @@ local WORLD_SPOTS = {
 }
 
 -- =====================
--- ===== МОДУЛИ (теперь с ожиданием) =====
+-- ===== МОДУЛИ =====
 -- =====================
-local Save = require(Client:WaitForChild("Save"))
-local Blocks = require(Library:WaitForChild("Types"):WaitForChild("Blocks"))
-local BlockWorldClient = require(Client:WaitForChild("ToolCmds"):WaitForChild("BlockWorldClient"))
-
-local Network = ReplicatedStorage:WaitForChild("Network", 10)
-local ConsumablesEvent = Network:WaitForChild("Consumables_Consume", 10)
+local Save = require(Client.Save)
+local Blocks = require(Library.Types.Blocks)
+local BlockWorldClient = require(Client.ToolCmds.BlockWorldClient)
 
 -- =====================
--- ===== БОМБЫ =====
+-- ===== ПОДСЧЁТ (для ГУИ) =====
 -- =====================
-local BOMB_UIDS = { green = nil, yellow = nil }
-
-local function findBombUIDs()
-    local data = Save.Get()
-    if not data or not data.Inventory or not data.Inventory.Consumable then
-        return false
-    end
-    for uid, core in pairs(data.Inventory.Consumable) do
-        if core.id == "Drill Array" then
-            BOMB_UIDS.green = uid
-        elseif core.id == "Core Charge" then
-            BOMB_UIDS.yellow = uid
-        end
-    end
-    return BOMB_UIDS.green ~= nil and BOMB_UIDS.yellow ~= nil
-end
-
 local function countBombs(bombType)
     local data = Save.Get()
     if not data or not data.Inventory or not data.Inventory.Consumable then
@@ -149,7 +141,7 @@ local function countOre()
 end
 
 -- =====================
--- ===== ЖДЁМ ПРОГРУЗКУ ИНВЕНТАРЯ =====
+-- ===== ЖДЁМ ИНВЕНТАРЬ =====
 -- =====================
 repeat task.wait(0.5) until Save.Get() and Save.Get().Inventory and Save.Get().Inventory.Consumable
 task.wait(2)
@@ -167,7 +159,7 @@ local function getGuiParent()
         local ok, res = pcall(gethui)
         if ok and res then return res end
     end
-    return game:GetService("Players").LocalPlayer:WaitForChild("PlayerGui")
+    return LocalPlayer:WaitForChild("PlayerGui")
 end
 
 -- =====================
@@ -259,6 +251,7 @@ sizeC2.MaxTextSize = 22
 sizeC2.MinTextSize = 12
 sizeC2.Parent = line2
 
+-- Панель статистики
 local statsPanel = Instance.new("Frame")
 statsPanel.Size = UDim2.new(0, 360, 0, 280)
 statsPanel.Position = UDim2.new(0, 10, 0, 10)
@@ -279,10 +272,10 @@ local statsTitle = Instance.new("TextLabel")
 statsTitle.Size = UDim2.new(1, -20, 0, 24)
 statsTitle.Position = UDim2.new(0, 10, 0, 8)
 statsTitle.BackgroundTransparency = 1
-statsTitle.Text = "📊 СТАТИСТИКА"
+statsTitle.Text = "📊 СТАТИСТИКА (хотбар 2/3)"
 statsTitle.TextColor3 = ACCENT
 statsTitle.Font = Enum.Font.GothamBold
-statsTitle.TextSize = 15
+statsTitle.TextSize = 14
 statsTitle.TextXAlignment = Enum.TextXAlignment.Left
 statsTitle.ZIndex = 6
 statsTitle.Parent = statsPanel
@@ -337,6 +330,7 @@ local oreLabel      = makeLine(202, ORE_COLOR, "💎 " .. ORE_NAME .. ": 0")
 local oreEarned     = makeLine(228, Color3.fromRGB(200, 160, 255), "   Нафармлено: 0")
 local afkLabel      = makeLine(258, Color3.fromRGB(255, 180, 100), "💤 АФК: 00:00:00")
 
+-- Кнопки
 local closeBtn = Instance.new("TextButton")
 closeBtn.Size = UDim2.new(0, 160, 0, 40)
 closeBtn.Position = UDim2.new(1, -170, 1, -56)
@@ -445,6 +439,25 @@ task.spawn(function()
 end)
 
 -- =====================
+-- ===== ХОТБАР ФУНКЦИЯ =====
+-- =====================
+local function pressKey(key)
+    pcall(function()
+        VirtualInputManager:SendKeyEvent(true, key, false, game)
+        task.wait(0.05)
+        VirtualInputManager:SendKeyEvent(false, key, false, game)
+    end)
+end
+
+local function useBombHotbar(bombKey)
+    if bombKey == "green" then
+        pressKey(GREEN_KEY)   -- клавиша 2
+    else
+        pressKey(YELLOW_KEY)  -- клавиша 3
+    end
+end
+
+-- =====================
 -- ===== ЛОГИКА =====
 -- =====================
 local TeleportService = game:GetService("TeleportService")
@@ -500,14 +513,6 @@ local function teleportToGrid(gridX, gridY, gridZ)
     teleportTo(target)
 end
 
-local function useBomb(bombKey)
-    local uid = BOMB_UIDS[bombKey]
-    if not uid then return end
-    pcall(function()
-        ConsumablesEvent:InvokeServer(uid, 1)
-    end)
-end
-
 local function getBombKey(y)
     return y >= GREEN_MAX_Y and "green" or "yellow"
 end
@@ -531,7 +536,6 @@ local function farmOnce()
     until world or attempts > 60
 
     if not world then return false end
-    if not findBombUIDs() then return false end
 
     region = world:GetRegion()
     origin = world:GetOrigin()
@@ -556,7 +560,7 @@ local function farmOnce()
                     if not getHRP() then task.wait(0.5) end
                     teleportToGrid(x, y, z)
                     task.wait(TP_SETTLE)
-                    useBomb(bombKey)
+                    useBombHotbar(bombKey)   -- ← КЛАВИША 2 или 3
                     task.wait(DELAY)
                 end
             end
